@@ -1,0 +1,881 @@
+{% extends "base.html" %}
+{% block title %}SVP Analysis Tool{% endblock %}
+{% block content %}
+
+<!-- TOP BAR -->
+<div class="top-bar">
+    <span class="diamond">◆</span>
+    <span>SVP Analysis</span>
+    <span class="separator">·</span>
+    <span class="highlight" id="topBarSvp">Select SVP & Years</span>
+    <span class="separator" id="topBarArrow" style="display:none">→</span>
+    <span id="topBarYears" style="display:none"></span>
+</div>
+
+<div class="main-layout" style="position:relative;">
+
+    <!-- LOADING -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <span>Running analysis...</span>
+    </div>
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+        <div class="panel-title">Parameters</div>
+        <form id="analysisForm" method="POST" action="/results_data">
+
+            <!-- SVP -->
+            <div>
+                <div class="form-section-label">SVP Categories</div>
+                <div class="svp-grid">
+                    {% for svp in svp_options %}
+                    <label class="svp-item" id="svpLabel_{{ loop.index }}">
+                        <input type="checkbox" name="svp" value="{{ svp }}"
+                               onchange="toggleSvp(this,'svpLabel_{{ loop.index }}')">
+                        <span class="svp-dot"></span>
+                        <span>{{ svp }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="error-msg" id="svpError"></div>
+            </div>
+
+            <!-- DISPLAY INTERVAL -->
+            <div>
+                <div class="form-section-label">
+                    Display Interval
+                    <span class="label-hint">(revenue min → market max)</span>
+                </div>
+                <div class="year-row">
+                    <div class="custom-select-wrapper" style="flex:1">
+                        <select class="custom-select" id="display_start_year"
+                                name="display_start_year"
+                                onchange="updateTopBar();filterDisplayEndYears();">
+                            <option value="">Start</option>
+                            {% for year in revenue_years %}
+                            <option value="{{ year }}"
+                                {% if year == default_display_start %}selected{% endif %}>
+                                {{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                    <div class="custom-select-wrapper" style="flex:1">
+                        <select class="custom-select" id="display_end_year"
+                                name="display_end_year" onchange="updateTopBar()">
+                            <option value="">End</option>
+                            {% for year in market_size_years %}
+                            <option value="{{ year }}"
+                                {% if year == default_display_end %}selected{% endif %}>
+                                {{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                </div>
+                <div class="error-msg" id="displayYearError"></div>
+            </div>
+
+            <!-- CAGR YEARS -->
+            <div>
+                <div class="form-section-label">
+                    CAGR Years
+                    <span class="label-hint">(from market size data)</span>
+                </div>
+                <div class="year-row">
+                    <div class="custom-select-wrapper" style="flex:1">
+                        <select class="custom-select" id="cagr_start_year"
+                                name="cagr_start_year"
+                                onchange="updateTopBar();filterCagrEndYears();">
+                            <option value="">1st Year</option>
+                            {% for year in market_size_years %}
+                            <option value="{{ year }}"
+                                {% if year == default_cagr_start %}selected{% endif %}>
+                                {{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                    <div class="custom-select-wrapper" style="flex:1">
+                        <select class="custom-select" id="cagr_end_year"
+                                name="cagr_end_year" onchange="updateTopBar()">
+                            <option value="">2nd Year</option>
+                            {% for year in market_size_years %}
+                            <option value="{{ year }}"
+                                {% if year == default_cagr_end %}selected{% endif %}>
+                                {{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                </div>
+                <div class="error-msg" id="cagrYearError"></div>
+            </div>
+
+            <!-- PREDICTION START YEAR -->
+            <div>
+                <div class="form-section-label">
+                    Prediction Start Year
+                    <span class="label-hint">(within revenue years)</span>
+                </div>
+                <div class="custom-select-wrapper">
+                    <select class="custom-select" id="pred_start_year"
+                            name="pred_start_year" onchange="updateTopBar()">
+                        <option value="">-- Select --</option>
+                        {% for year in revenue_years %}
+                        <option value="{{ year }}"
+                            {% if year == default_pred_start %}selected{% endif %}>
+                            {{ year }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="select-arrow">▼</span>
+                </div>
+                <div class="error-msg" id="predStartError"></div>
+            </div>
+
+            <!-- REGION -->
+            <div>
+                <div class="form-section-label">Region</div>
+                <div class="region-grid">
+                    {% for region in regions %}
+                    <label class="region-item {% if loop.first %}active{% endif %}"
+                           id="regionLabel_{{ loop.index }}">
+                        <input type="radio" name="region" value="{{ region }}"
+                               {% if loop.first %}checked{% endif %}
+                               onchange="toggleRegion('regionLabel_{{ loop.index }}')">
+                        <span class="region-dot {% if loop.first %}active{% endif %}"></span>
+                        <span>{{ region }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <button type="submit" class="run-btn" id="runBtn">▶ Run Analysis</button>
+        </form>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+        <!-- CHART -->
+        <div class="chart-area" id="chartArea">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title" id="chartTitle">Total Revenue by Year</div>
+                    <div class="chart-subtitle" id="chartSubtitle">
+                        Select parameters and run analysis</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px;">
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <div class="legend-line" style="background:#ffffff;"></div>
+                            <span>Actual</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-line" style="background:#4fc3f7;"></div>
+                            <span>Real (post pred-start)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-line" style="background:#f5a623;
+                                 border-top:2px dashed #f5a623;height:0;width:24px;"></div>
+                            <span>Predicted</span>
+                        </div>
+                    </div>
+                    <button class="toggle-chart-btn" id="toggleChartBtn"
+                            onclick="toggleChart()">▲ Hide Chart</button>
+                </div>
+            </div>
+            <div class="chart-wrapper" id="chartWrapper">
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+
+        <!-- KPI STRIP -->
+        <div class="kpi-strip">
+            <div class="kpi-card">
+                <div class="kpi-label">
+                    Selected Element CAGR
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">
+                        <div style="display: inline;">CAGR of the selected row:</div> <div style="text-align: center;">$$\text{CAGR} = \left(\frac{\text{E}}{\text{S}}\right)^{\frac{1}{\text{I}}} - 1$$</div>
+                        <p>S: 1nd year's revenue specified in the CAGR Year option<br>E: 2nd year's revenue specified in the CAGR Year option<br>I: 2nd year - 1st year</p>
+                    </div>
+                </div>
+                <div class="kpi-value white" id="kpiSelectedElementCagr">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">CAGR of Actual Interval</div>
+                <div class="kpi-value white" id="kpiCagrActualInterval">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">
+                    Avg CAGR
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">Average CAGRs of all individual offer</div>
+                </div>
+                <div class="kpi-value" id="kpiAvgCagr">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">
+                    Total CAGR
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">
+                        CAGR of the TOTAL row across the CAGR interval
+                    </div>
+                </div>
+                <div class="kpi-value" id="kpiTotalCagr">—</div>
+            </div>
+        </div>
+
+        <!-- SEARCH + DOWNLOADS -->
+        <div class="search-bar-container" id="searchBarContainer" style="display:none;">
+            <input type="text" id="tableSearch" class="search-input"
+                   placeholder="Search offers, categories, or segments..."
+                   oninput="filterTable()">
+            <span class="search-count" id="searchCount"></span>
+            <button class="download-btn" onclick="downloadChart()">Chart</button>
+            <button class="download-btn" onclick="downloadTable()">Excel</button>
+        </div>
+
+        <!-- TABLE -->
+        <div class="table-area" id="tableArea">
+            <div class="empty-state">
+                <div class="icon">◈</div>
+                <p>Configure your parameters and click<br>
+                   <strong>Run Analysis</strong> to see results</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ STYLES ══ -->
+<style>
+.label-hint {
+    font-size:.6rem; color:var(--text-muted);
+    text-transform:none; letter-spacing:0; margin-left:4px;
+}
+.search-bar-container {
+    padding:16px 28px; border-bottom:1px solid var(--border-color);
+    background-color:var(--bg-panel); display:flex; align-items:center; gap:12px;
+}
+.search-input {
+    flex:1; background-color:var(--bg-card); border:1px solid var(--border-color);
+    color:var(--text-primary); padding:10px 14px; border-radius:6px;
+    font-family:'Courier New',monospace; font-size:.85rem; transition:border-color .2s;
+}
+.search-input:focus { outline:none; border-color:var(--accent-orange); }
+.search-input::placeholder { color:var(--text-muted); }
+.search-count { font-size:.75rem; color:var(--text-muted); white-space:nowrap; }
+
+.results-table tbody tr { cursor:pointer; }
+.results-table tbody tr.selected {
+    background-color:rgba(245,166,35,.15);
+    border-left:3px solid var(--accent-orange);
+}
+.results-table tbody tr.hidden  { display:none; }
+.results-table tbody tr.total-row { cursor:default; }
+
+/* column colour coding */
+.results-table td.col-predicted {
+    color:#f5a623; font-style:italic; opacity:.9;
+}
+.results-table td.col-real-post { color:#4fc3f7; }
+.results-table th.col-predicted {
+    color:#f5a623; font-style:italic;
+}
+.results-table th.col-real-post { color:#4fc3f7; }
+
+.download-btn {
+    background-color:var(--bg-card); border:1px solid var(--border-color);
+    color:var(--text-primary); padding:8px 16px; border-radius:6px;
+    font-family:'Courier New',monospace; font-size:.8rem;
+    cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.download-btn:hover {
+    border-color:var(--accent-orange);
+    background-color:rgba(245,166,35,.1); color:var(--accent-orange);
+}
+.download-btn:active { transform:scale(.98); }
+
+.toggle-chart-btn {
+    background-color:var(--bg-card); border:1px solid var(--border-color);
+    color:var(--text-muted); padding:6px 14px; border-radius:6px;
+    font-family:'Courier New',monospace; font-size:.75rem;
+    cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.toggle-chart-btn:hover { border-color:var(--accent-orange); color:var(--accent-orange); }
+
+.chart-wrapper {
+    height:220px; overflow:hidden;
+    transition:height .4s ease, opacity .4s ease;
+}
+.chart-wrapper.collapsed { height:0 !important; opacity:0; }
+
+.info-icon {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:16px; height:16px; border-radius:50%; background-color:#7a7a9d;
+    color:#fff; font-weight:bold; font-size:12px; cursor:pointer;
+    margin-left:6px; font-family:Arial,sans-serif;
+    transition:background-color .2s; position:relative; flex-shrink:0;
+}
+.info-icon:hover { background-color:var(--accent-orange); }
+
+</style>
+
+<!-- ═══════════════════════════════════════════ SCRIPT ══ -->
+<script>
+// ── globals ──────────────────────────────────────────────────────────────────
+let currentTableData  = null;
+let currentColumnOrder= null;
+let currentChartData  = null;
+let revenueChart      = null;
+let chartVisible      = true;
+let element_selected_cagr  = '—';
+let element_selected_offer = '—';
+
+// ── chart toggle ──────────────────────────────────────────────────────────────
+function toggleChart() {
+    const wrapper = document.getElementById('chartWrapper');
+    const btn     = document.getElementById('toggleChartBtn');
+    chartVisible  = !chartVisible;
+    if (chartVisible) {
+        wrapper.style.height  = '220px';
+        wrapper.style.opacity = '1';
+        wrapper.classList.remove('collapsed');
+        btn.textContent = '▲ Hide Chart';
+    } else {
+        wrapper.style.height  = '0px';
+        wrapper.style.opacity = '0';
+        wrapper.classList.add('collapsed');
+        btn.textContent = '▼ Show Chart';
+    }
+}
+
+// ── SVP / region toggles ──────────────────────────────────────────────────────
+function toggleSvp(checkbox, labelId) {
+    const label = document.getElementById(labelId);
+    checkbox.checked ? label.classList.add('active') : label.classList.remove('active');
+    updateTopBar();
+}
+function toggleRegion(activeLabelId) {
+    document.querySelectorAll('.region-item').forEach(el => {
+        el.classList.remove('active');
+        el.querySelector('.region-dot').classList.remove('active');
+    });
+    const al = document.getElementById(activeLabelId);
+    al.classList.add('active');
+    al.querySelector('.region-dot').classList.add('active');
+}
+
+// ── year filter helpers ───────────────────────────────────────────────────────
+function filterDisplayEndYears() {
+    const sy = parseInt(document.getElementById('display_start_year').value);
+    const es = document.getElementById('display_end_year');
+    Array.from(es.options).forEach(o => {
+        if (o.value === '') return;
+        o.disabled = parseInt(o.value) <= sy;
+    });
+    if (parseInt(es.value) <= sy) es.value = '';
+}
+function filterCagrEndYears() {
+    const sy = parseInt(document.getElementById('cagr_start_year').value);
+    const es = document.getElementById('cagr_end_year');
+    Array.from(es.options).forEach(o => {
+        if (o.value === '') return;
+        o.disabled = parseInt(o.value) <= sy;
+    });
+    if (parseInt(es.value) <= sy) es.value = '';
+}
+
+// ── top bar ───────────────────────────────────────────────────────────────────
+function updateTopBar() {
+    const ds = document.getElementById('display_start_year').value;
+    const de = document.getElementById('display_end_year').value;
+    const cs = document.getElementById('cagr_start_year').value;
+    const ce = document.getElementById('cagr_end_year').value;
+    const ps = document.getElementById('pred_start_year').value;
+    const svps = Array.from(document.querySelectorAll('input[name="svp"]:checked'))
+                      .map(cb => cb.value.split(' - ')[1] || cb.value);
+
+    document.getElementById('topBarSvp').textContent =
+        svps.length ? svps.join(', ') : 'Select SVP & Years';
+
+    if (ds && de && cs && ce && ps) {
+        document.getElementById('topBarArrow').style.display = 'inline';
+        document.getElementById('topBarYears').style.display = 'inline';
+        document.getElementById('topBarYears').textContent =
+            `${ds}→${de} · CAGR: ${cs}→${ce} · Pred from: ${ps}`;
+    } else {
+        document.getElementById('topBarArrow').style.display = 'none';
+        document.getElementById('topBarYears').style.display = 'none';
+    }
+}
+
+// ── renderChart ───────────────────────────────────────────────────────────────
+// Three datasets:
+//   0 – Actual (white solid)        : real revenue before pred_start_year
+//   1 – Real post (blue solid)      : real revenue >= pred_start_year (overlap)
+//   2 – Predicted (orange dashed)   : CAGR projection >= pred_start_year
+function renderChart(labels, actual, realPost, predicted, title) {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    if (revenueChart) revenueChart.destroy();
+
+    revenueChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Actual',
+                    data: actual,
+                    borderColor: '#ffffff',
+                    backgroundColor: 'rgba(255,255,255,0.04)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#ffffff',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.3,
+                    fill: false,
+                    spanGaps: false,
+                },
+                {
+                    label: 'Real (post pred-start)',
+                    data: realPost,
+                    borderColor: '#4fc3f7',
+                    backgroundColor: 'rgba(79,195,247,0.06)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#4fc3f7',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.3,
+                    fill: false,
+                    spanGaps: false,
+                },
+                {
+                    label: 'Predicted',
+                    data: predicted,
+                    borderColor: '#f5a623',
+                    backgroundColor: 'rgba(245,166,35,0.08)',
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    pointBackgroundColor: '#f5a623',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.3,
+                    fill: true,
+                    spanGaps: false,
+                },
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1a1825',
+                    borderColor: '#2e2b3e',
+                    borderWidth: 1,
+                    titleColor: '#7a7a9d',
+                    bodyColor: '#ffffff',
+                    callbacks: {
+                        label(ctx) {
+                            const v = ctx.parsed.y;
+                            if (v === null || v === undefined) return null;
+                            return ` ${ctx.dataset.label}: ${v.toLocaleString('fr-FR',
+                                {minimumFractionDigits:2})}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(46,43,62,0.5)' },
+                    ticks: { color: '#7a7a9d', font: { size: 11 } }
+                },
+                y: {
+                    grid: { color: 'rgba(46,43,62,0.5)' },
+                    ticks: {
+                        color: '#7a7a9d', font: { size: 11 },
+                        callback(v) {
+                            if (v == null) return '';
+                            if (Math.abs(v) >= 1e6) return (v/1e6).toFixed(1)+'M';
+                            if (Math.abs(v) >= 1e3) return (v/1e3).toFixed(1)+'k';
+                            return v.toFixed(1);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    document.getElementById('chartTitle').textContent = title || 'Total Revenue by Year';
+}
+
+// ── renderTable ───────────────────────────────────────────────────────────────
+function renderTable(tableData, columnOrder) {
+    const area = document.getElementById('tableArea');
+    if (!tableData || !tableData.length) {
+        area.innerHTML = `<div class="empty-state"><div class="icon">◈</div>
+            <p>No results found.</p></div>`;
+        document.getElementById('searchBarContainer').style.display = 'none';
+        return;
+    }
+    currentTableData   = tableData;
+    currentColumnOrder = columnOrder;
+    document.getElementById('searchBarContainer').style.display = 'flex';
+    document.getElementById('tableSearch').value = '';
+
+    let html = `<table class="results-table"><thead><tr>`;
+    columnOrder.forEach(h => {
+        let cls = '';
+        if (h.startsWith('Predicted_')) cls = 'col-predicted';
+        else if (h.startsWith('Real_'))  cls = 'col-real-post';
+        html += `<th class="${cls}">${h}</th>`;
+    });
+    html += `</tr></thead><tbody>`;
+
+    tableData.forEach((row, idx) => {
+        const isTotal = row['Offer'] === 'TOTAL';
+        html += `<tr class="${isTotal ? 'total-row' : ''}"
+                     data-index="${idx}"
+                     onclick="selectTableRow(this,${idx})">`;
+        columnOrder.forEach(h => {
+            const val = row[h];
+            let cls = '';
+            if (h.startsWith('Predicted_'))  cls = 'col-predicted';
+            else if (h.startsWith('Real_'))   cls = 'col-real-post';
+            else if (h.startsWith('Revenue_')|| h.startsWith('CAGR')) cls = 'orange';
+            else if (['Market_Category','Sub-segment 2','SVP'].includes(h)) cls = 'muted';
+            if (isTotal) cls = '';
+            html += `<td class="${cls}">${val ?? '—'}</td>`;
+        });
+        html += `</tr>`;
+    });
+    html += `</tbody></table>`;
+    area.innerHTML = html;
+    updateSearchCount();
+}
+
+// ── selectTableRow ────────────────────────────────────────────────────────────
+function selectTableRow(el, idx) {
+    if (el.classList.contains('total-row')) return;
+    document.querySelectorAll('.results-table tbody tr')
+            .forEach(r => r.classList.remove('selected'));
+    el.classList.add('selected');
+
+    const row     = currentTableData[idx];
+    const cagrCol = currentColumnOrder.find(c => c.startsWith('CAGR_'));
+    element_selected_cagr  = cagrCol ? row[cagrCol] : '—';
+    element_selected_offer = row['Offer'];
+    document.getElementById('kpiSelectedElementCagr').textContent  = element_selected_cagr;
+
+    if (!currentChartData) return;
+
+    const labels    = currentChartData.chart_labels;
+    const predStart = String(currentChartData.pred_start_year);
+    const psIdx     = labels.indexOf(predStart);
+
+    // Build three series for this offer
+    const actual    = labels.map((y, i) => {
+        if (i > psIdx) return null;  // actual ends at pred_start_year
+        const col = `Revenue_${y}`;
+        if (!currentColumnOrder.includes(col)) return null;
+        const v = row[col];
+        return (v && v !== '—') ? parseFloat(v.replace(/,/g,'')) : null;
+    });
+
+    const realPost  = labels.map((y, i) => {
+        if (i < psIdx) return null;  // real_post starts at pred_start_year
+        const col = `Real_${y}`;
+        if (!currentColumnOrder.includes(col)) return null;
+        const v = row[col];
+        return (v && v !== '—') ? parseFloat(v.replace(/,/g,'')) : null;
+    });
+
+    const predicted = labels.map((y, i) => {
+        if (i < psIdx) return null;  // predicted starts at pred_start_year
+        const col = `Predicted_${y}`;
+        if (!currentColumnOrder.includes(col)) return null;
+        const v = row[col];
+        return (v && v !== '—') ? parseFloat(v.replace(/,/g,'')) : null;
+    });
+
+    // At pred_start_year, all three should converge to the same value
+    if (psIdx >= 0) {
+        const seedCol = `Real_${predStart}`;
+        if (currentColumnOrder.includes(seedCol)) {
+            const seedVal = row[seedCol];
+            if (seedVal && seedVal !== '—') {
+                const seed = parseFloat(seedVal.replace(/,/g,''));
+                actual[psIdx]    = seed;
+                realPost[psIdx]  = seed;
+                predicted[psIdx] = seed;
+            }
+        }
+    }
+
+    renderChart(labels, actual, realPost, predicted,
+                `Revenue: ${element_selected_offer}`);
+}
+
+// ── filterTable ───────────────────────────────────────────────────────────────
+function filterTable() {
+    const term = document.getElementById('tableSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('.results-table tbody tr:not(.total-row)');
+    let vis = 0;
+    rows.forEach(r => {
+        const match = r.textContent.toLowerCase().includes(term);
+        r.classList.toggle('hidden', !match);
+        if (match) vis++;
+    });
+    updateSearchCount(vis, rows.length);
+}
+function updateSearchCount(vis, tot) {
+    const el = document.getElementById('searchCount');
+    if (vis !== undefined) el.textContent = `${vis} / ${tot} offers`;
+    else {
+        const rows = document.querySelectorAll('.results-table tbody tr:not(.total-row)');
+        el.textContent = `${rows.length} offers`;
+    }
+}
+
+// ── tooltip ───────────────────────────────────────────────────────────────────
+function toggleTooltip(event) {
+    event.stopPropagation();
+    const tip = event.target.nextElementSibling;
+    document.querySelectorAll('.tooltip-content').forEach(t => {
+        if (t !== tip) t.classList.remove('tooltip-active');
+    });
+    tip.classList.toggle('tooltip-active');
+    if (tip.classList.contains('tooltip-active')) positionTooltip(event.target, tip);
+}
+function positionTooltip(icon, tip) {
+    tip.style.visibility = 'hidden';
+    tip.style.display    = 'block';
+    const ir = icon.getBoundingClientRect();
+    const tr = tip.getBoundingClientRect();
+    tip.style.visibility = '';
+    tip.style.display    = '';
+    tip.style.top  = (ir.top  - tr.height - 12) + 'px';
+    tip.style.left = (ir.left + ir.width/2 - tr.width/2) + 'px';
+}
+document.addEventListener('click', e => {
+    if (!e.target.classList.contains('info-icon'))
+        document.querySelectorAll('.tooltip-content')
+                .forEach(t => t.classList.remove('tooltip-active'));
+});
+
+// ── form submit ───────────────────────────────────────────────────────────────
+document.getElementById('analysisForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    ['svpError','displayYearError','cagrYearError','predStartError']
+        .forEach(id => document.getElementById(id).textContent = '');
+
+    const svps       = document.querySelectorAll('input[name="svp"]:checked');
+    const dispStart  = document.getElementById('display_start_year').value;
+    const dispEnd    = document.getElementById('display_end_year').value;
+    const cagrStart  = document.getElementById('cagr_start_year').value;
+    const cagrEnd    = document.getElementById('cagr_end_year').value;
+    const predStart  = document.getElementById('pred_start_year').value;
+
+    if (!svps.length) {
+        document.getElementById('svpError').textContent =
+            'Please select at least one SVP category'; return;
+    }
+    if (!dispStart || !dispEnd) {
+        document.getElementById('displayYearError').textContent =
+            'Please select both display interval years'; return;
+    }
+    if (parseInt(dispEnd) <= parseInt(dispStart)) {
+        document.getElementById('displayYearError').textContent =
+            'End year must be greater than start year'; return;
+    }
+    if (!cagrStart || !cagrEnd) {
+        document.getElementById('cagrYearError').textContent =
+            'Please select both CAGR years'; return;
+    }
+    if (parseInt(cagrEnd) <= parseInt(cagrStart)) {
+        document.getElementById('cagrYearError').textContent =
+            '2nd year must be greater than 1st year'; return;
+    }
+    if (!predStart) {
+        document.getElementById('predStartError').textContent =
+            'Please select a prediction start year'; return;
+    }
+
+    document.getElementById('loadingOverlay').classList.add('active');
+    document.getElementById('runBtn').disabled = true;
+
+    try {
+        const resp = await fetch('/results_data',
+            { method:'POST', body: new FormData(this) });
+        const data = await resp.json();
+
+        if (data.error) {
+            document.getElementById('displayYearError').textContent = data.error;
+            return;
+        }
+
+        currentChartData = data;
+        element_selected_cagr  = '—';
+        element_selected_offer = '—';
+
+        updateTopBar();
+        document.getElementById('kpiSelectedElementCagr').textContent  = '—';
+        document.getElementById('kpiCagrActualInterval').textContent = data.actual_cagr;
+        document.getElementById('kpiAvgCagr').textContent   = data.avg_cagr;
+        let totalCagr = '—';
+        if (data.tot_predicted && data.cagr_start_year && data.cagr_end_year) {
+            const startYear = parseInt(data.cagr_start_year);
+            const endYear = parseInt(data.cagr_end_year);
+            
+            const startVal = data.tot_predicted[startYear];
+            const endVal = data.tot_predicted[endYear];
+            
+            console.log(data.tot_predicted);
+            if (startVal !== undefined && endVal !== undefined && startVal > 0 && endYear > startYear) {
+                const cagr = Math.pow(endVal / startVal, 1 / (endYear - startYear)) - 1;
+                totalCagr = (cagr * 100).toFixed(2) + '%';
+            } else if (startVal === undefined || endVal === undefined) {
+                // ✅ Show error if data is missing
+                console.warn(`Missing market size data for years ${startYear}-${endYear}`);
+                totalCagr = 'N/A';
+            }
+        }
+        document.getElementById('kpiTotalCagr').textContent = totalCagr;
+        document.getElementById('chartSubtitle').textContent =
+            `Display: ${data.display_start_year}→${data.display_end_year} · ` +
+            `CAGR: ${data.cagr_start_year}→${data.cagr_end_year} · ` +
+            `Pred from: ${data.pred_start_year} · ${data.result_count} offers`;
+
+        renderChart(
+            data.chart_labels,
+            data.chart_actual,
+            data.chart_real_post,
+            data.chart_predicted,
+            'Total Revenue by Year'
+        );
+        renderTable(data.table_data, data.column_order);
+
+    } catch(err) {
+        document.getElementById('displayYearError').textContent =
+            'An error occurred: ' + err.message;
+    } finally {
+        document.getElementById('loadingOverlay').classList.remove('active');
+        document.getElementById('runBtn').disabled = false;
+    }
+});
+
+// ── init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+    updateTopBar();
+    filterDisplayEndYears();
+    filterCagrEndYears();
+});
+
+// ── download chart ────────────────────────────────────────────────────────────
+function downloadChart() {
+    if (!revenueChart) { alert('No chart to download.'); return; }
+
+    const ds = revenueChart.data.datasets;
+    const orig = ds.map(d => ({
+        bc: d.borderColor, bg: d.backgroundColor, pc: d.pointBackgroundColor
+    }));
+    const origGrid = revenueChart.options.scales.x.grid.color;
+    const origTick = revenueChart.options.scales.x.ticks.color;
+
+    ds[0].borderColor = '#333'; ds[0].backgroundColor = 'rgba(51,51,51,.1)';
+    ds[0].pointBackgroundColor = '#333';
+    ds[1].borderColor = '#0288d1'; ds[1].backgroundColor = 'rgba(2,136,209,.1)';
+    ds[1].pointBackgroundColor = '#0288d1';
+    ds[2].borderColor = '#f5a623'; ds[2].backgroundColor = 'rgba(245,166,35,.15)';
+    ds[2].pointBackgroundColor = '#f5a623';
+    revenueChart.options.scales.x.grid.color = 'rgba(0,0,0,.1)';
+    revenueChart.options.scales.y.grid.color = 'rgba(0,0,0,.1)';
+    revenueChart.options.scales.x.ticks.color = '#333';
+    revenueChart.options.scales.y.ticks.color = '#333';
+    revenueChart.update();
+
+    const canvas = document.getElementById('revenueChart');
+    const tmp = document.createElement('canvas');
+    tmp.width = canvas.width; tmp.height = canvas.height;
+    const tc = tmp.getContext('2d');
+    tc.fillStyle = '#fff'; tc.fillRect(0,0,tmp.width,tmp.height);
+    tc.drawImage(canvas,0,0);
+
+    tmp.toBlob(blob => {
+        const url  = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href  = url;
+        link.download = `${document.getElementById('chartTitle').textContent
+            .replace(/[^a-z0-9]/gi,'_')}_${new Date().toISOString().slice(0,10)}.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        ds.forEach((d,i) => {
+            d.borderColor = orig[i].bc;
+            d.backgroundColor = orig[i].bg;
+            d.pointBackgroundColor = orig[i].pc;
+        });
+        revenueChart.options.scales.x.grid.color = origGrid;
+        revenueChart.options.scales.y.grid.color = origGrid;
+        revenueChart.options.scales.x.ticks.color = origTick;
+        revenueChart.options.scales.y.ticks.color = origTick;
+        revenueChart.update();
+    });
+}
+
+// ── download excel ────────────────────────────────────────────────────────────
+async function downloadTable() {
+    if (!currentTableData?.length) {
+        alert('No data to download.'); return;
+    }
+    try {
+        document.getElementById('loadingOverlay').classList.add('active');
+        const excelData = currentTableData.map(row => {
+            const clean = {};
+            currentColumnOrder.forEach(col => {
+                let v = row[col];
+                if (typeof v === 'string' && v.includes(',')) {
+                    const n = parseFloat(v.replace(/,/g,''));
+                    clean[col] = isNaN(n) ? v : n;
+                } else if (v === '—' || v == null || v === '') {
+                    clean[col] = '';
+                } else {
+                    clean[col] = v;
+                }
+            });
+            return clean;
+        });
+
+        const resp = await fetch('/download_excel', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+                data: excelData,
+                columns: currentColumnOrder,
+                display_start_year: currentChartData.display_start_year,
+                display_end_year:   currentChartData.display_end_year,
+            })
+        });
+        if (!resp.ok) throw new Error('Failed to generate Excel file');
+
+        const blob = await resp.blob();
+        const url  = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href  = url;
+        link.download = `SVP_Analysis_${currentChartData.display_start_year}_` +
+                        `${currentChartData.display_end_year}_` +
+                        `${new Date().toISOString().slice(0,10)}.xlsx`;
+        link.click();
+        URL.revokeObjectURL(url);
+    } catch(err) {
+        alert('Error: ' + err.message);
+    } finally {
+        document.getElementById('loadingOverlay').classList.remove('active');
+    }
+}
+</script>
+{% endblock %}

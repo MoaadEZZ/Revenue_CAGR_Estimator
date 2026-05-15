@@ -1,0 +1,67 @@
+<!-- settings.html -->
+<div class="settings-container">
+    
+    <!-- FILE STATUS SECTION -->
+    <div class="file-status-panel">
+        <h3>📁 Data Files Status</h3>
+        
+        <div class="file-card">
+            <div class="file-info">
+                <span class="file-name">CAGR Mapper.xlsx</span>
+                <span class="file-date">Last updated: 2025-01-15</span>
+                <span class="file-rows">1,247 offers</span>
+            </div>
+            <button class="btn-upload">Replace</button>
+        </div>
+        
+        <div class="file-card">
+            <div class="file-info">
+                <span class="file-name">Market Sizing - 3Q 2025.xlsx</span>
+                <span class="file-date">Last updated: 2025-01-10</span>
+                <span class="file-rows">5,892 records</span>
+            </div>
+            <button class="btn-upload">Replace</button>
+        </div>
+    </div>
+    
+    <!-- UPLOAD SECTION -->
+    <div class="upload-panel">
+        <h3>📤 Upload New File</h3>
+        
+        <div class="upload-form">
+            <select id="fileType">
+                <option>Select file type...</option>
+                <option value="cagr">CAGR Mapper</option>
+                <option value="market">Market Size</option>
+            </select>
+            
+            <input type="file" id="fileInput" accept=".xlsx">
+            
+            <div class="validation-info">
+                <p>Required columns for CAGR Mapper:</p>
+                <ul>
+                    <li>catégorie</li>
+                    <li>Sub-segment 2</li>
+                    <li>Segment</li>
+                    <li>pr_offer</li>
+                </ul>
+            </div>
+            
+            <button onclick="uploadFile()">Upload & Validate</button>
+        </div>
+    </div>
+    
+    <!-- VERSION HISTORY -->
+    <div class="history-panel">
+        <h3>📜 Version History</h3>
+        <table>
+            <tr>
+                <th>File</th>
+                <th>Date</th>
+                <th>Rows</th>
+                <th>Action</th>
+            </tr>
+            <!-- populated dynamically -->
+        </table>
+    </div>
+</div>

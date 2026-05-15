@@ -1,0 +1,726 @@
+{% extends "base.html" %}
+{% block title %}File Management - SVP Analysis Tool{% endblock %}
+
+{% block extra_css %}
+<style>
+    .files-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 40px 24px;
+    }
+
+    .page-header {
+        margin-bottom: 40px;
+    }
+
+    .page-header h1 {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .page-header p {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    /* ── FILE STATUS PANEL ── */
+    .file-status-panel {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 28px;
+        margin-bottom: 32px;
+    }
+
+    .panel-heading {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: var(--text-primary);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .file-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 16px;
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .file-card:hover {
+        border-color: var(--accent-orange);
+        background-color: rgba(245, 166, 35, 0.05);
+    }
+
+    .file-info {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+    }
+
+    .file-name {
+        font-size: 0.95rem;
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    .file-meta {
+        display: flex;
+        gap: 16px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    .file-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .file-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .badge-fresh {
+        background-color: rgba(76, 175, 80, 0.2);
+        color: #4caf50;
+    }
+
+    .badge-warning {
+        background-color: rgba(255, 193, 7, 0.2);
+        color: #ffc107;
+    }
+
+    .badge-stale {
+        background-color: rgba(244, 67, 54, 0.2);
+        color: #f44336;
+    }
+
+    .file-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-file {
+        padding: 8px 16px;
+        background-color: var(--bg-dark);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .btn-file:hover {
+        border-color: var(--accent-orange);
+        color: var(--accent-orange);
+        background-color: rgba(245, 166, 35, 0.1);
+    }
+
+    .btn-file:active {
+        transform: scale(0.98);
+    }
+
+    /* ── UPLOAD PANEL ── */
+    .upload-panel {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 28px;
+        margin-bottom: 32px;
+    }
+
+    .upload-form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .form-label {
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: bold;
+    }
+
+    .form-select {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+
+    .form-select:focus {
+        outline: none;
+        border-color: var(--accent-orange);
+    }
+
+    .form-select option {
+        background-color: var(--bg-card);
+        color: var(--text-primary);
+    }
+
+    .file-input-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .file-input-wrapper input[type="file"] {
+        position: absolute;
+        left: -9999px;
+    }
+
+    .file-input-label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 16px;
+        background-color: var(--bg-card);
+        border: 2px dashed var(--border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .file-input-label:hover {
+        border-color: var(--accent-orange);
+        color: var(--accent-orange);
+        background-color: rgba(245, 166, 35, 0.05);
+    }
+
+    .file-input-label.dragover {
+        border-color: var(--accent-orange);
+        background-color: rgba(245, 166, 35, 0.15);
+    }
+
+    .file-name-display {
+        font-size: 0.8rem;
+        color: var(--text-primary);
+        margin-top: 8px;
+        padding: 8px 12px;
+        background-color: rgba(245, 166, 35, 0.1);
+        border-radius: 4px;
+        display: none;
+    }
+
+    .file-name-display.show {
+        display: block;
+    }
+
+    .validation-info {
+        background-color: rgba(108, 99, 255, 0.1);
+        border-left: 3px solid var(--accent-purple);
+        padding: 12px 16px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    .validation-info h4 {
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+        margin-top: 0;
+    }
+
+    .validation-info ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    .validation-info li {
+        margin: 4px 0;
+    }
+
+    .btn-upload {
+        padding: 12px 24px;
+        background-color: var(--accent-orange);
+        color: #000;
+        border: none;
+        border-radius: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        font-weight: bold;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+        width: 100%;
+    }
+
+    .btn-upload:hover {
+        background-color: #e09510;
+    }
+
+    .btn-upload:active {
+        transform: scale(0.98);
+    }
+
+    .btn-upload:disabled {
+        background-color: #5a4a1a;
+        color: #888;
+        cursor: not-allowed;
+    }
+
+    /* ── VERSION HISTORY ── */
+    .history-panel {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 28px;
+    }
+
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+    }
+
+    .history-table thead {
+        background-color: var(--bg-card);
+    }
+
+    .history-table thead th {
+        padding: 10px 16px;
+        text-align: left;
+        font-size: 0.65rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color);
+        white-space: nowrap;
+    }
+
+    .history-table tbody tr {
+        border-bottom: 1px solid var(--border-color);
+        transition: background-color 0.15s;
+    }
+
+    .history-table tbody tr:hover {
+        background-color: var(--bg-card);
+    }
+
+    .history-table tbody td {
+        padding: 9px 16px;
+        color: var(--text-primary);
+    }
+
+    .history-table tbody td.muted {
+        color: var(--text-muted);
+    }
+
+    /* ── ALERTS ── */
+    .alert-box {
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-size: 0.85rem;
+        display: none;
+    }
+
+    .alert-box.show {
+        display: block;
+    }
+
+    .alert-success {
+        background-color: rgba(76, 175, 80, 0.15);
+        border-left: 3px solid #4caf50;
+        color: #4caf50;
+    }
+
+    .alert-error {
+        background-color: rgba(244, 67, 54, 0.15);
+        border-left: 3px solid #f44336;
+        color: #f44336;
+    }
+
+    .alert-warning {
+        background-color: rgba(255, 193, 7, 0.15);
+        border-left: 3px solid #ffc107;
+        color: #ffc107;
+    }
+
+    /* ── LOADING ── */
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--border-color);
+        border-top-color: var(--accent-orange);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 8px;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="files-container">
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+        <h1>📁 File Management</h1>
+        <p>Upload and manage your data files for SVP analysis</p>
+    </div>
+
+    <!-- ALERTS -->
+    <div id="alertSuccess" class="alert-box alert-success"></div>
+    <div id="alertError" class="alert-box alert-error"></div>
+    <div id="alertWarning" class="alert-box alert-warning"></div>
+
+    <!-- FILE STATUS PANEL -->
+    <div class="file-status-panel">
+        <div class="panel-heading">📊 Current Files Status</div>
+        
+        <div id="fileStatusContainer">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                <div class="loading-spinner"></div>
+                Loading file information...
+            </div>
+        </div>
+    </div>
+
+    <!-- UPLOAD PANEL -->
+    <div class="upload-panel">
+        <div class="panel-heading">📤 Upload New File</div>
+        
+        <form id="uploadForm" class="upload-form">
+            <div class="form-group">
+                <label class="form-label">Select File Type</label>
+                <select id="fileType" class="form-select" required>
+                    <option value="">-- Choose file type --</option>
+                    <option value="cagr">CAGR Mapper</option>
+                    <option value="market">Market Size</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Choose File</label>
+                <div class="file-input-wrapper">
+                    <label class="file-input-label" id="fileInputLabel" for="fileInput">
+                        <span>📎 Click to select or drag & drop your file here</span>
+                    </label>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls" required>
+                </div>
+                <div id="fileNameDisplay" class="file-name-display"></div>
+            </div>
+
+            <div class="validation-info">
+                <h4>Required Columns</h4>
+                <div id="requiredColumns">
+                    <p style="color: var(--text-muted); margin: 0;">Select a file type to see required columns</p>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-upload" id="uploadBtn">Upload & Validate</button>
+        </form>
+    </div>
+
+    <!-- VERSION HISTORY PANEL -->
+    <div class="history-panel">
+        <div class="panel-heading">📜 Version History</div>
+        
+        <div id="historyContainer">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                <div class="loading-spinner"></div>
+                Loading version history...
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Configuration ──────────────────────────────────────────────────────────
+const FILE_TYPES = {
+    cagr: {
+        name: 'CAGR Mapper',
+        requiredColumns: ['catégorie', 'Sub-segment 2', 'Segment', 'pr_offer'],
+        description: 'Maps offers to categories and segments'
+    },
+    market: {
+        name: 'Market Size',
+        requiredColumns: ['Year', 'Million EUR', 'Segment', 'Sub-segment 2'],
+        description: 'Market sizing data with forecasts'
+    }
+};
+
+// ── DOM Elements ───────────────────────────────────────────────────────────
+const fileTypeSelect = document.getElementById('fileType');
+const fileInput = document.getElementById('fileInput');
+const fileInputLabel = document.getElementById('fileInputLabel');
+const fileNameDisplay = document.getElementById('fileNameDisplay');
+const uploadForm = document.getElementById('uploadForm');
+const uploadBtn = document.getElementById('uploadBtn');
+const requiredColumnsDiv = document.getElementById('requiredColumns');
+const fileStatusContainer = document.getElementById('fileStatusContainer');
+const historyContainer = document.getElementById('historyContainer');
+
+// ── Alert Functions ───────────────────────────────────────────────────────
+function showAlert(type, message) {
+    const alertEl = document.getElementById(`alert${type.charAt(0).toUpperCase() + type.slice(1)}`);
+    alertEl.textContent = message;
+    alertEl.classList.add('show');
+    setTimeout(() => alertEl.classList.remove('show'), 5000);
+}
+
+// ── File Type Selection ────────────────────────────────────────────────────
+fileTypeSelect.addEventListener('change', (e) => {
+    const fileType = e.target.value;
+    if (!fileType) {
+        requiredColumnsDiv.innerHTML = '<p style="color: var(--text-muted); margin: 0;">Select a file type to see required columns</p>';
+        return;
+    }
+
+    const config = FILE_TYPES[fileType];
+    let html = `<ul>`;
+    config.requiredColumns.forEach(col => {
+        html += `<li><code>${col}</code></li>`;
+    });
+    html += `</ul>`;
+    requiredColumnsDiv.innerHTML = html;
+});
+
+// ── File Input Handling ────────────────────────────────────────────────────
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        fileNameDisplay.textContent = `✓ Selected: ${file.name}`;
+        fileNameDisplay.classList.add('show');
+    }
+});
+
+// ── Drag & Drop ────────────────────────────────────────────────────────────
+fileInputLabel.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    fileInputLabel.classList.add('dragover');
+});
+
+fileInputLabel.addEventListener('dragleave', () => {
+    fileInputLabel.classList.remove('dragover');
+});
+
+fileInputLabel.addEventListener('drop', (e) => {
+    e.preventDefault();
+    fileInputLabel.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        fileNameDisplay.textContent = `✓ Selected: ${files[0].name}`;
+        fileNameDisplay.classList.add('show');
+    }
+});
+
+// ── Form Submit ────────────────────────────────────────────────────────────
+uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const fileType = fileTypeSelect.value;
+    const file = fileInput.files[0];
+
+    if (!fileType) {
+        showAlert('error', 'Please select a file type');
+        return;
+    }
+
+    if (!file) {
+        showAlert('error', 'Please select a file');
+        return;
+    }
+
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="loading-spinner"></span>Uploading...';
+
+    const formData = new FormData();
+    formData.append('file_type', fileType);
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/upload_file', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            showAlert('error', data.error || 'Upload failed');
+            return;
+        }
+
+        showAlert('success', `✓ ${FILE_TYPES[fileType].name} uploaded successfully (${data.rows} rows)`);
+        
+        // Reset form
+        uploadForm.reset();
+        fileNameDisplay.classList.remove('show');
+        fileTypeSelect.value = '';
+        requiredColumnsDiv.innerHTML = '<p style="color: var(--text-muted); margin: 0;">Select a file type to see required columns</p>';
+
+        // Refresh file status and history
+        loadFileStatus();
+        loadVersionHistory();
+
+    } catch (error) {
+        showAlert('error', 'Error: ' + error.message);
+    } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = 'Upload & Validate';
+    }
+});
+
+// ── Load File Status ───────────────────────────────────────────────────────
+async function loadFileStatus() {
+    try {
+        const response = await fetch('/file_status');
+        const data = await response.json();
+
+        let html = '';
+        for (const [fileType, info] of Object.entries(data.files)) {
+            const daysOld = info.days_old;
+            let badgeClass = 'badge-fresh';
+            let badgeText = '✓ Fresh';
+
+            if (daysOld > 30) {
+                badgeClass = 'badge-stale';
+                badgeText = '⚠ Stale';
+            } else if (daysOld > 14) {
+                badgeClass = 'badge-warning';
+                badgeText = '⚡ Update Soon';
+            }
+
+            html += `
+                <div class="file-card">
+                    <div class="file-info">
+                        <div class="file-name">${FILE_TYPES[fileType].name}</div>
+                        <div class="file-meta">
+                            <div class="file-meta-item">📅 ${info.modified}</div>
+                            <div class="file-meta-item">📊 ${info.rows} rows</div>
+                            <div class="file-meta-item">💾 ${info.size}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="file-status-badge ${badgeClass}">${badgeText}</span>
+                        <button class="btn-file" onclick="triggerFileInput('${fileType}')">Replace</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (data.warnings && data.warnings.length > 0) {
+            let warningHtml = '<div style="margin-bottom: 16px;">';
+            data.warnings.forEach(w => {
+                warningHtml += `<div class="alert-box alert-warning show">${w}</div>`;
+            });
+            warningHtml += '</div>';
+            html = warningHtml + html;
+        }
+
+        fileStatusContainer.innerHTML = html;
+    } catch (error) {
+        fileStatusContainer.innerHTML = `<div class="alert-box alert-error show">Error loading file status: ${error.message}</div>`;
+    }
+}
+
+// ── Load Version History ───────────────────────────────────────────────────
+async function loadVersionHistory() {
+    try {
+        const response = await fetch('/file_history');
+        const data = await response.json();
+
+        if (!data.history || data.history.length === 0) {
+            historyContainer.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">No version history available yet</p>';
+            return;
+        }
+
+        let html = `
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>File Type</th>
+                        <th>Upload Date</th>
+                        <th>Rows</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        data.history.forEach(entry => {
+            html += `
+                <tr>
+                    <td>${FILE_TYPES[entry.file_type]?.name || entry.file_type}</td>
+                    <td class="muted">${entry.timestamp}</td>
+                    <td>${entry.rows}</td>
+                    <td><span class="file-status-badge badge-fresh">✓ Active</span></td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+        `;
+
+        historyContainer.innerHTML = html;
+    } catch (error) {
+        historyContainer.innerHTML = `<div class="alert-box alert-error show">Error loading history: ${error.message}</div>`;
+    }
+}
+
+// ── Trigger File Input for Replace ─────────────────────────────────────────
+function triggerFileInput(fileType) {
+    fileTypeSelect.value = fileType;
+    fileTypeSelect.dispatchEvent(new Event('change'));
+    fileInput.click();
+}
+
+// ── Initialize ─────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+    loadFileStatus();
+    loadVersionHistory();
+});
+</script>
+{% endblock %}

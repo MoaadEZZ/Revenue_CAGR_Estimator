@@ -4,6 +4,11 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from pipeline import *
+import os
+import shutil
+from datetime import datetime
+from pathlib import Path
+import pandas as pd
 
 app = Flask(__name__)
 
@@ -139,6 +144,202 @@ def download_excel():
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+    
+
+@app.route('/files')
+def files():
+    """File management page"""
+    return render_template('files.html')
+
+
+@app.route('/settings')
+def settings():
+    """Settings page (placeholder for future use)"""
+    return render_template('settings.html')
+
+
+@app.route('/file_status')
+def file_status():
+    """Get current file status and metadata"""
+    try:
+        files_info = {}
+        warnings = []
+
+        # Check CAGR Mapper
+        if os.path.exists(DATA_CAGR_MAPPER):
+            stat = os.stat(DATA_CAGR_MAPPER)
+            mod_time = datetime.fromtimestamp(stat.st_mtime)
+            days_old = (datetime.now() - mod_time).days
+            
+            df = pd.read_excel(DATA_CAGR_MAPPER)
+            
+            files_info['cagr'] = {
+                'modified': mod_time.strftime('%Y-%m-%d %H:%M'),
+                'rows': len(df),
+                'size': f"{stat.st_size / 1024:.1f} KB",
+                'days_old': days_old
+            }
+            
+            if days_old > 30:
+                warnings.append(f"⚠️ CAGR Mapper is {days_old} days old. Consider updating it.")
+            elif days_old > 14:
+                warnings.append(f"⚡ CAGR Mapper is {days_old} days old. Update recommended soon.")
+
+        # Check Market Size
+        if os.path.exists(DATA_MARKET_SIZE):
+            stat = os.stat(DATA_MARKET_SIZE)
+            mod_time = datetime.fromtimestamp(stat.st_mtime)
+            days_old = (datetime.now() - mod_time).days
+            
+            df = pd.read_excel(DATA_MARKET_SIZE)
+            
+            files_info['market'] = {
+                'modified': mod_time.strftime('%Y-%m-%d %H:%M'),
+                'rows': len(df),
+                'size': f"{stat.st_size / 1024:.1f} KB",
+                'days_old': days_old
+            }
+            
+            if days_old > 30:
+                warnings.append(f"⚠️ Market Size file is {days_old} days old. Consider updating it.")
+            elif days_old > 14:
+                warnings.append(f"⚡ Market Size file is {days_old} days old. Update recommended soon.")
+
+        return jsonify({
+            'files': files_info,
+            'warnings': warnings
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/file_history')
+def file_history():
+    """Get version history of uploaded files"""
+    try:
+        history = []
+        
+        # Check backup directories
+        backup_dirs = {
+            'cagr': os.path.join(DATA_DIR, 'backups', 'cagr'),
+            'market': os.path.join(DATA_DIR, 'backups', 'market')
+        }
+        
+        for file_type, backup_dir in backup_dirs.items():
+            if os.path.exists(backup_dir):
+                files = sorted(os.listdir(backup_dir), reverse=True)
+                for filename in files[:5]:  # Last 5 versions
+                    filepath = os.path.join(backup_dir, filename)
+                    if os.path.isfile(filepath):
+                        try:
+                            df = pd.read_excel(filepath)
+                            stat = os.stat(filepath)
+                            mod_time = datetime.fromtimestamp(stat.st_mtime)
+                            
+                            history.append({
+                                'file_type': file_type,
+                                'timestamp': mod_time.strftime('%Y-%m-%d %H:%M:%S'),
+                                'rows': len(df),
+                                'filename': filename
+                            })
+                        except:
+                            pass
+        
+        # Sort by timestamp descending
+        history = sorted(history, key=lambda x: x['timestamp'], reverse=True)
+        
+        return jsonify({'history': history})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    """Handle file uploads with validation"""
+    try:
+        file_type = request.form.get('file_type')
+        uploaded_file = request.files.get('file')
+        
+        if not uploaded_file:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        if not file_type:
+            return jsonify({'error': 'File type not specified'}), 400
+        
+        # Read and validate file
+        try:
+            df = pd.read_excel(uploaded_file)
+        except Exception as e:
+            return jsonify({'error': f'Invalid Excel file: {str(e)}'}), 400
+        
+        # Validate required columns based on file type
+        if file_type == 'cagr':
+            required_cols = ['catégorie', 'Sub-segment 2', 'Segment', 'pr_offer']
+            missing = [c for c in required_cols if c not in df.columns]
+            if missing:
+                return jsonify({
+                    'error': f'Missing required columns: {", ".join(missing)}'
+                }), 400
+            target_path = DATA_CAGR_MAPPER
+            
+        elif file_type == 'market':
+            required_cols = ['Year', 'Million EUR']
+            missing = [c for c in required_cols if c not in df.columns]
+            if missing:
+                return jsonify({
+                    'error': f'Missing required columns: {", ".join(missing)}'
+                }), 400
+            target_path = DATA_MARKET_SIZE
+            
+        else:
+            return jsonify({'error': 'Invalid file type'}), 400
+        
+        # Create backup of old file
+        if os.path.exists(target_path):
+            backup_old_file(file_type, target_path)
+        
+        # Save new file
+        uploaded_file.save(target_path)
+        
+        # Reload global data
+        global revenue_years, market_size_years, df_all_data
+        revenue_years = load_revenue_data()
+        market_size_years = load_market_size_years()
+        df_all_data = load_all_data()
+        
+        return jsonify({
+            'success': True,
+            'message': f'{file_type} file uploaded successfully',
+            'rows': len(df),
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+def backup_old_file(file_type, source_path):
+    """Keep previous version as backup"""
+    try:
+        if file_type == 'cagr':
+            backup_dir = os.path.join(DATA_DIR, 'backups', 'cagr')
+        else:
+            backup_dir = os.path.join(DATA_DIR, 'backups', 'market')
+        
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_path = os.path.join(backup_dir, f'backup_{timestamp}.xlsx')
+        
+        if os.path.exists(source_path):
+            shutil.copy2(source_path, backup_path)
+            print(f"✓ Backup created: {backup_path}")
+    except Exception as e:
+        print(f"⚠ Warning: Could not create backup: {e}")
 
 
 @app.route('/back')

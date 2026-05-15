@@ -35,6 +35,83 @@
             min-height: 100vh;
         }
 
+        /* ── NAVBAR ── */
+        .navbar-custom {
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+
+        .navbar-brand-custom {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .navbar-brand-custom:hover {
+            color: var(--accent-orange);
+        }
+
+        .navbar-brand-custom .logo-icon {
+            font-size: 1.2rem;
+            color: var(--accent-orange);
+        }
+
+        .navbar-nav-custom {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            list-style: none;
+            margin: 0;
+        }
+
+        .nav-item-custom {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-link-custom {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .nav-link-custom:hover {
+            color: var(--accent-orange);
+            background-color: rgba(245, 166, 35, 0.1);
+        }
+
+        .nav-link-custom.active {
+            color: var(--accent-orange);
+            background-color: rgba(245, 166, 35, 0.15);
+            border-bottom: 2px solid var(--accent-orange);
+        }
+
+        .nav-separator {
+            width: 1px;
+            height: 24px;
+            background-color: var(--border-color);
+        }
+
         /* ── TOP BAR ── */
         .top-bar {
             background-color: var(--bg-panel);
@@ -64,7 +141,7 @@
         /* ── LAYOUT ── */
         .main-layout {
             display: flex;
-            height: calc(100vh - 45px);
+            height: calc(100vh - 50px);
             overflow: hidden;
         }
 
@@ -538,7 +615,6 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             white-space: normal;
             line-height: 1.4;
-            /* Transition properties */
             opacity: 0;
             visibility: hidden;
             transform: translateY(8px);
@@ -553,7 +629,6 @@
             pointer-events: auto;
         }
 
-        /* Arrow pointing DOWN */
         .tooltip-content::before {
             content: "";
             position: absolute;
@@ -564,19 +639,6 @@
             border-style: solid;
             border-color: #333 transparent transparent transparent;
         }
-
-        /*
-        .tooltip-content::before {
-            content: "";
-            position: absolute;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-width: 6px;
-            border-style: solid;
-            border-color: #333 transparent transparent transparent;
-        }
-        */
 
         /* Toggle Chart Button */
         .toggle-chart-btn {
@@ -607,7 +669,6 @@
             height: 0 !important;
             opacity: 0;
         }
-
 
         .loading-overlay.active {
             display: flex;
@@ -648,6 +709,34 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- ── NAVBAR ── -->
+    <nav class="navbar-custom">
+        <a href="/" class="navbar-brand-custom">
+            <span class="logo-icon">◆</span>
+            <span>SVP Analysis</span>
+        </a>
+        <ul class="navbar-nav-custom">
+            <li class="nav-item-custom">
+                <a href="/" class="nav-link-custom {% if request.endpoint == 'index' %}active{% endif %}">
+                    <span>📊</span>
+                    <span>Analysis</span>
+                </a>
+            </li>
+            <li class="nav-item-custom">
+                <a href="/files" class="nav-link-custom {% if request.endpoint == 'files' %}active{% endif %}">
+                    <span>📁</span>
+                    <span>Files</span>
+                </a>
+            </li>
+            <li class="nav-item-custom">
+                <a href="/settings" class="nav-link-custom {% if request.endpoint == 'settings' %}active{% endif %}">
+                    <span>⚙️</span>
+                    <span>Settings</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
     {% block content %}{% endblock %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}

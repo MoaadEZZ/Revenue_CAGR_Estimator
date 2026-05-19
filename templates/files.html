@@ -3,6 +3,19 @@
 
 {% block extra_css %}
 <style>
+    .btn-clear-small {
+        background: none;
+        border: none;
+        color: var(--accent-orange);
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0 4px;
+        margin-left: 8px;
+    }
+
+    .btn-clear-small:hover {
+        opacity: 0.7;
+    }
     .files-container {
         max-width: 1200px;
         margin: 0 auto;
@@ -242,7 +255,8 @@
     }
 
     .file-name-display.show {
-        display: block;
+        display: flex;
+        justify-content: space-between;
     }
 
     .validation-info {
@@ -443,11 +457,10 @@
                     </label>
                     <input type="file" id="fileInput" accept=".xlsx,.xls" required>
                 </div>
-                <div id="fileNameDisplay" class="file-name-display"></div>
-                <!-- ADD THIS BUTTON -->
-                <button type="button" class="btn-clear" onclick="clearFileSelection()">
-                    ✕ Clear Selection
-                </button>
+                <div id="fileNameDisplay" class="file-name-display">
+                    <span id="fileName"></span>
+                    <button type="button" class="btn-clear-small" onclick="clearFileSelection()">✕</button>
+                </div>
             </div>
 
 
@@ -479,6 +492,10 @@
 
 {% block extra_js %}
 <script>
+function clearFileSelection() {
+    document.getElementById('fileInput').value = '';
+    fileNameDisplay.classList.remove('show');
+}
 // ── Configuration ──────────────────────────────────────────────────────────
 const FILE_TYPES = {
     cagr: {
@@ -533,7 +550,7 @@ fileTypeSelect.addEventListener('change', (e) => {
 fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
-        fileNameDisplay.textContent = `✓ Selected: ${file.name}`;
+        document.getElementById('fileName').textContent = `✓ ${file.name}`;
         fileNameDisplay.classList.add('show');
     }
 });

@@ -171,19 +171,21 @@ def file_status():
             mod_time = datetime.fromtimestamp(stat.st_mtime)
             days_old = (datetime.now() - mod_time).days
             
-            df = pd.read_excel(DATA_CAGR_MAPPER)
-            
-            files_info['cagr'] = {
-                'modified': mod_time.strftime('%Y-%m-%d %H:%M'),
-                'rows': len(df),
-                'size': f"{stat.st_size / 1024:.1f} KB",
-                'days_old': days_old
-            }
-            
-            if days_old > 30:
-                warnings.append(f"⚠️ CAGR Mapper is {days_old} days old. Consider updating it.")
-            elif days_old > 14:
-                warnings.append(f"⚡ CAGR Mapper is {days_old} days old. Update recommended soon.")
+            try:
+                df = pd.read_excel(DATA_CAGR_MAPPER)
+                files_info['cagr'] = {
+                    'modified': mod_time.strftime('%Y-%m-%d %H:%M'),
+                    'rows': len(df),
+                    'size': f"{stat.st_size / 1024:.1f} KB",
+                    'days_old': days_old
+                }
+                
+                if days_old > 30:
+                    warnings.append(f"⚠️ CAGR Mapper is {days_old} days old. Consider updating it.")
+                elif days_old > 14:
+                    warnings.append(f"⚡ CAGR Mapper is {days_old} days old. Update recommended soon.")
+            except Exception as e:
+                print(f"Error reading CAGR file: {e}")
 
         # Check Market Size
         if os.path.exists(DATA_MARKET_SIZE):
@@ -191,27 +193,36 @@ def file_status():
             mod_time = datetime.fromtimestamp(stat.st_mtime)
             days_old = (datetime.now() - mod_time).days
             
-            df = pd.read_excel(DATA_MARKET_SIZE)
-            
-            files_info['market'] = {
-                'modified': mod_time.strftime('%Y-%m-%d %H:%M'),
-                'rows': len(df),
-                'size': f"{stat.st_size / 1024:.1f} KB",
-                'days_old': days_old
-            }
-            
-            if days_old > 30:
-                warnings.append(f"⚠️ Market Size file is {days_old} days old. Consider updating it.")
-            elif days_old > 14:
-                warnings.append(f"⚡ Market Size file is {days_old} days old. Update recommended soon.")
+            try:
+                df = pd.read_excel(DATA_MARKET_SIZE)
+                files_info['market'] = {
+                    'modified': mod_time.strftime('%Y-%m-%d %H:%M'),
+                    'rows': len(df),
+                    'size': f"{stat.st_size / 1024:.1f} KB",
+                    'days_old': days_old
+                }
+                
+                if days_old > 30:
+                    warnings.append(f"⚠️ Market Size file is {days_old} days old. Consider updating it.")
+                elif days_old > 14:
+                    warnings.append(f"⚡ Market Size file is {days_old} days old. Update recommended soon.")
+            except Exception as e:
+                print(f"Error reading Market Size file: {e}")
 
+        # ✅ ALWAYS return valid structure
+        print(files_info)
         return jsonify({
-            'files': files_info,
+            'files': files_info if files_info else {},
             'warnings': warnings
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Error in file_status: {e}")
+        return jsonify({
+            'files': {},
+            'warnings': [f'Error loading file status: {str(e)}']
+        }), 500
+
 
 
 @app.route('/file_history')
@@ -268,8 +279,10 @@ def upload_file():
         if not file_type:
             return jsonify({'error': 'File type not specified'}), 400
         
-        # Read and validate file
+        # ✅ Read file into memory FIRST
         try:
+            file_bytes = uploaded_file.read()
+            uploaded_file.seek(0)  # Reset stream
             df = pd.read_excel(uploaded_file)
         except Exception as e:
             return jsonify({'error': f'Invalid Excel file: {str(e)}'}), 400
@@ -300,8 +313,17 @@ def upload_file():
         if os.path.exists(target_path):
             backup_old_file(file_type, target_path)
         
-        # Save new file
-        uploaded_file.save(target_path)
+        # ✅ Save file properly using BytesIO
+        try:
+            with open(target_path, 'wb') as f:
+                f.write(file_bytes)
+            
+            # Verify file was written correctly
+            if not os.path.exists(target_path) or os.path.getsize(target_path) == 0:
+                raise Exception("File was not saved properly")
+                
+        except Exception as e:
+            return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
         
         # Reload global data
         global revenue_years, market_size_years, df_all_data
@@ -320,6 +342,7 @@ def upload_file():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 def backup_old_file(file_type, source_path):

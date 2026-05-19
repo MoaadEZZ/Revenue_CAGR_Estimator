@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}File Management - SVP Analysis Tool{% endblock %}
+{% block title %}File Management - Market Referential{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -401,7 +401,7 @@
     <!-- PAGE HEADER -->
     <div class="page-header">
         <h1>📁 File Management</h1>
-        <p>Upload and manage your data files for SVP analysis</p>
+        <p>Upload and manage your data files for Market Referential</p>
     </div>
 
     <!-- ALERTS -->
@@ -444,7 +444,12 @@
                     <input type="file" id="fileInput" accept=".xlsx,.xls" required>
                 </div>
                 <div id="fileNameDisplay" class="file-name-display"></div>
+                <!-- ADD THIS BUTTON -->
+                <button type="button" class="btn-clear" onclick="clearFileSelection()">
+                    ✕ Clear Selection
+                </button>
             </div>
+
 
             <div class="validation-info">
                 <h4>Required Columns</h4>

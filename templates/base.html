@@ -112,6 +112,94 @@
             background-color: var(--border-color);
         }
 
+        .advanced-toggle-btn {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .advanced-toggle-btn:hover {
+            border-color: var(--accent-orange);
+            color: var(--accent-orange);
+        }
+
+        .advanced-toggle-btn.active {
+            background-color: rgba(245, 166, 35, 0.1);
+            border-color: var(--accent-orange);
+            color: var(--accent-orange);
+        }
+
+        .advanced-options-section {
+            padding: 16px;
+            background-color: rgba(245, 166, 35, 0.05);
+            border: 1px solid rgba(245, 166, 35, 0.2);
+            border-radius: 6px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .column-selection-container {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .column-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .column-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            font-size: 0.8rem;
+        }
+
+        .column-checkbox:hover {
+            background-color: rgba(245, 166, 35, 0.1);
+        }
+
+        .column-checkbox input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: var(--accent-orange);
+        }
+
+        .column-checkbox span {
+            color: var(--text-primary);
+        }
+
+
         /* ── TOP BAR ── */
         .top-bar {
             background-color: var(--bg-panel);

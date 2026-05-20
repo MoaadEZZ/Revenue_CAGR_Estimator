@@ -232,8 +232,7 @@ def load_all_data():
         return None
 
 def resultat_data(df_all_data, display_start_year, display_end_year, cagr_start_year, cagr_end_year,
-                  pred_start_year, selected_svps, region, use_custom_cagr='no'):
-
+                  pred_start_year, selected_svps, region, use_custom_cagr='no', selected_columns=None):
     try:
         print(f"\n{'='*60}")
         print(f"Display : {display_start_year} → {display_end_year}")
@@ -290,35 +289,39 @@ def resultat_data(df_all_data, display_start_year, display_end_year, cagr_start_
             svp             = row.get('SVP', '---')
             sub2            = row['Sub-segment 2']
 
-            # ✅ Check for custom CAGR first
+            # ✅ Calculate both CAGRs
             cagr = None
+            mif_cagr = None  # Market/MIF CAGR
             cagr_source = 'market'
-            
+
+            # Calculate market CAGR (always)
+            if sub2 is None or (isinstance(sub2, float) and np.isnan(sub2)):
+                sub2 = '---'
+
+            sc = f"Million EUR_{cagr_start_year}"
+            ec = f"Million EUR_{cagr_end_year}"
+
+            if sc in df.columns and ec in df.columns:
+                ms_s = row[sc] if not pd.isna(row[sc]) else 0
+                ms_e = row[ec] if not pd.isna(row[ec]) else 0
+                mif_cagr = calculate_cagr(ms_s, ms_e, cagr_end_year - cagr_start_year)
+            else:
+                mif_cagr = 0
+
+            # Check for custom CAGR
             if use_custom_cagr == 'yes' and custom_cagr_dict:
-                # Exact match lookup
                 if offer in custom_cagr_dict:
                     cagr = custom_cagr_dict[offer]
                     cagr_source = 'custom'
                     custom_cagr_applied_count += 1
-                    print(f"  ✓ {offer}: Custom CAGR = {cagr*100:.2f}%")
 
-            if sub2 is None or (isinstance(sub2, float) and np.isnan(sub2)):
-                sub2 = '---'
-
-            # If no custom CAGR, calculate from market size
+            # If no custom CAGR, use market CAGR
             if cagr is None:
-                sc = f"Million EUR_{cagr_start_year}"
-                ec = f"Million EUR_{cagr_end_year}"
-
-                if sc in df.columns and ec in df.columns:
-                    ms_s = row[sc] if not pd.isna(row[sc]) else 0
-                    ms_e = row[ec] if not pd.isna(row[ec]) else 0
-                    cagr = calculate_cagr(ms_s, ms_e, cagr_end_year - cagr_start_year)
-                else:
-                    cagr = 0
-                    print(f"⚠ Warning: Market size data missing for {cagr_start_year}-{cagr_end_year}")
+                cagr = mif_cagr
+                cagr_source = 'market'
 
             cagr_values.append(cagr)
+
 
             # Actual revenues from data
             actual = {}
@@ -342,9 +345,24 @@ def resultat_data(df_all_data, display_start_year, display_end_year, cagr_start_
             result_row['SVP']            = svp
             result_row['Sub-segment 2']  = sub2
             result_row['Market_Category']= market_category
-            result_row[f'CAGR_{cagr_start_year}/{cagr_end_year}'] = f"{cagr*100:.2f}%"
 
-            anchor_val = tot_predicted.get(pred_start_year, 0)
+            # ✅ Always add both CAGR columns
+            cagr_col_name = f'CAGR_{cagr_start_year}/{cagr_end_year}'
+            mif_cagr_col_name = f'MIF_CAGR_{cagr_start_year}/{cagr_end_year}'
+
+            if use_custom_cagr == 'yes' and cagr_source == 'custom':
+                result_row[cagr_col_name] = f"{cagr*100:.2f}% (custom)"
+            else:
+                result_row[cagr_col_name] = f"{cagr*100:.2f}%"
+
+            result_row[mif_cagr_col_name] = f"{mif_cagr*100:.2f}%"
+
+            # Add year columns
+            for year in year_cols:
+                result_row[year] = row[year]
+
+            results_list.append(result_row)
+
 
             for y in all_display_years:
 
@@ -404,6 +422,46 @@ def resultat_data(df_all_data, display_start_year, display_end_year, cagr_start_
                 year_cols.append(f'Predicted_{y}')
         column_order = fixed_cols + year_cols
 
+        # ── Filter columns based on user selection ──────────────────────────────────
+        if selected_columns is None:
+            selected_columns = ['Offer', 'SVP', 'Sub-segment 2', 'Market_Category', 'CAGR', 'MIF_CAGR']
+
+        # Always include these columns
+        always_include = ['Offer']
+
+        # Build filtered column order
+        filtered_column_order = []
+
+        # Add fixed columns
+        fixed_cols_to_check = ['Offer', 'SVP', 'Sub-segment 2', 'Market_Category']
+        for col in fixed_cols_to_check:
+            if col in always_include or col in selected_columns:
+                filtered_column_order.append(col)
+
+        # Add CAGR columns if selected
+        cagr_col_name = f'CAGR_{cagr_start_year}/{cagr_end_year}'
+        mif_cagr_col_name = f'MIF_CAGR_{cagr_start_year}/{cagr_end_year}'
+
+        if 'CAGR' in selected_columns:
+            filtered_column_order.append(cagr_col_name)
+
+        if 'MIF_CAGR' in selected_columns:
+            filtered_column_order.append(mif_cagr_col_name)
+
+        # Add year columns
+        filtered_column_order.extend(year_cols)
+
+        column_order = filtered_column_order
+
+        # Filter table data to only include selected columns
+        for row in results_list:
+            filtered_row = OrderedDict()
+            for col in column_order:
+                if col in row:
+                    filtered_row[col] = row[col]
+            results_list_filtered.append(filtered_row)
+
+        results_list = results_list_filtered
         # ── TOTAL row ──────────────────────────────────────────────────────
 
         total_row = OrderedDict()

@@ -24,152 +24,197 @@
     <div class="left-panel">
         <div class="panel-title">Parameters</div>
         <form id="analysisForm" method="POST" action="/results_data">
-
-            <!-- SVP -->
-            <div>
-                <div class="form-section-label">SVP Categories</div>
-                <div class="svp-grid">
-                    {% for svp in svp_options %}
-                    <label class="svp-item" id="svpLabel_{{ loop.index }}">
-                        <input type="checkbox" name="svp" value="{{ svp }}"
-                               onchange="toggleSvp(this,'svpLabel_{{ loop.index }}')">
-                        <span class="svp-dot"></span>
-                        <span>{{ svp }}</span>
-                    </label>
-                    {% endfor %}
+            <!-- BASIC OPTIONS (Always visible) -->
+            <div id="basicOptions">
+                <!-- SVP -->
+                <div>
+                    <div class="form-section-label">SVP Categories</div>
+                    <div class="svp-grid">
+                        {% for svp in svp_options %}
+                        <label class="svp-item" id="svpLabel_{{ loop.index }}">
+                            <input type="checkbox" name="svp" value="{{ svp }}"
+                                onchange="toggleSvp(this,'svpLabel_{{ loop.index }}')">
+                            <span class="svp-dot"></span>
+                            <span>{{ svp }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div class="error-msg" id="svpError"></div>
                 </div>
-                <div class="error-msg" id="svpError"></div>
+
+                <!-- DISPLAY INTERVAL -->
+                <div>
+                    <div class="form-section-label">
+                        Display Interval
+                        <span class="label-hint">(revenue min → market max)</span>
+                    </div>
+                    <div class="year-row">
+                        <div class="custom-select-wrapper" style="flex:1">
+                            <select class="custom-select" id="display_start_year"
+                                    name="display_start_year"
+                                    onchange="updateTopBar();filterDisplayEndYears();">
+                                <option value="">Start</option>
+                                {% for year in revenue_years %}
+                                <option value="{{ year }}"
+                                    {% if year == default_display_start %}selected{% endif %}>
+                                    {{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="select-arrow">▼</span>
+                        </div>
+                        <div class="custom-select-wrapper" style="flex:1">
+                            <select class="custom-select" id="display_end_year"
+                                    name="display_end_year" onchange="updateTopBar()">
+                                <option value="">End</option>
+                                {% for year in market_size_years %}
+                                <option value="{{ year }}"
+                                    {% if year == default_display_end %}selected{% endif %}>
+                                    {{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="select-arrow">▼</span>
+                        </div>
+                    </div>
+                    <div class="error-msg" id="displayYearError"></div>
+                </div>
+
+                <!-- CAGR YEARS -->
+                <div>
+                    <div class="form-section-label">
+                        CAGR Years
+                        <span class="label-hint">(from market size data)</span>
+                    </div>
+                    <div class="year-row">
+                        <div class="custom-select-wrapper" style="flex:1">
+                            <select class="custom-select" id="cagr_start_year"
+                                    name="cagr_start_year"
+                                    onchange="updateTopBar();filterCagrEndYears();">
+                                <option value="">1st Year</option>
+                                {% for year in market_size_years %}
+                                <option value="{{ year }}"
+                                    {% if year == default_cagr_start %}selected{% endif %}>
+                                    {{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="select-arrow">▼</span>
+                        </div>
+                        <div class="custom-select-wrapper" style="flex:1">
+                            <select class="custom-select" id="cagr_end_year"
+                                    name="cagr_end_year" onchange="updateTopBar()">
+                                <option value="">2nd Year</option>
+                                {% for year in market_size_years %}
+                                <option value="{{ year }}"
+                                    {% if year == default_cagr_end %}selected{% endif %}>
+                                    {{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="select-arrow">▼</span>
+                        </div>
+                    </div>
+                    <div class="error-msg" id="cagrYearError"></div>
+                </div>
+
+                <!-- REGION -->
+                <div>
+                    <div class="form-section-label">Region</div>
+                    <div class="region-grid">
+                        {% for region in regions %}
+                        <label class="region-item {% if loop.first %}active{% endif %}"
+                            id="regionLabel_{{ loop.index }}">
+                            <input type="radio" name="region" value="{{ region }}"
+                                {% if loop.first %}checked{% endif %}
+                                onchange="toggleRegion('regionLabel_{{ loop.index }}')">
+                            <span class="region-dot {% if loop.first %}active{% endif %}"></span>
+                            <span>{{ region }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
 
-            <!-- DISPLAY INTERVAL -->
-            <div>
-                <div class="form-section-label">
-                    Display Interval
-                    <span class="label-hint">(revenue min → market max)</span>
-                </div>
-                <div class="year-row">
-                    <div class="custom-select-wrapper" style="flex:1">
-                        <select class="custom-select" id="display_start_year"
-                                name="display_start_year"
-                                onchange="updateTopBar();filterDisplayEndYears();">
-                            <option value="">Start</option>
+            <!-- FORM HEADER WITH TOGGLE -->
+            <button type="button" style="margin-top: 10px;" class="advanced-toggle-btn" id="advancedToggleBtn" onclick="toggleAdvancedOptions()">
+                    ▼ Advanced Options
+            </button>
+
+
+            <!-- ADVANCED OPTIONS (Collapsible) -->
+            <div id="advancedOptions" class="advanced-options-section" style="display: none;">
+                <!-- PREDICTION START YEAR -->
+                <div>
+                    <div class="form-section-label">
+                        Prediction Start Year
+                        <span class="label-hint">(within revenue years)</span>
+                    </div>
+                    <div class="custom-select-wrapper">
+                        <select class="custom-select" id="pred_start_year"
+                                name="pred_start_year" onchange="updateTopBar()">
+                            <option value="">-- Select --</option>
                             {% for year in revenue_years %}
                             <option value="{{ year }}"
-                                {% if year == default_display_start %}selected{% endif %}>
+                                {% if year == default_pred_start %}selected{% endif %}>
                                 {{ year }}</option>
                             {% endfor %}
                         </select>
                         <span class="select-arrow">▼</span>
                     </div>
-                    <div class="custom-select-wrapper" style="flex:1">
-                        <select class="custom-select" id="display_end_year"
-                                name="display_end_year" onchange="updateTopBar()">
-                            <option value="">End</option>
-                            {% for year in market_size_years %}
-                            <option value="{{ year }}"
-                                {% if year == default_display_end %}selected{% endif %}>
-                                {{ year }}</option>
-                            {% endfor %}
-                        </select>
-                        <span class="select-arrow">▼</span>
-                    </div>
+                    <div class="error-msg" id="predStartError"></div>
                 </div>
-                <div class="error-msg" id="displayYearError"></div>
-            </div>
 
-            <!-- CAGR YEARS -->
-            <div>
-                <div class="form-section-label">
-                    CAGR Years
-                    <span class="label-hint">(from market size data)</span>
-                </div>
-                <div class="year-row">
-                    <div class="custom-select-wrapper" style="flex:1">
-                        <select class="custom-select" id="cagr_start_year"
-                                name="cagr_start_year"
-                                onchange="updateTopBar();filterCagrEndYears();">
-                            <option value="">1st Year</option>
-                            {% for year in market_size_years %}
-                            <option value="{{ year }}"
-                                {% if year == default_cagr_start %}selected{% endif %}>
-                                {{ year }}</option>
-                            {% endfor %}
-                        </select>
-                        <span class="select-arrow">▼</span>
+                <!-- CUSTOM CAGR SECTION -->
+                <div>
+                    <div class="form-section-label">Custom CAGR</div>
+                    <div class="region-grid">
+                        <label class="region-item active" id="customCagrLabel_0">
+                            <input type="radio" name="use_custom_cagr" value="no" checked
+                                onchange="toggleCustomCagr('customCagrLabel_0')">
+                            <span class="region-dot active"></span>
+                            <span>Standard</span>
+                        </label>
+                        <label class="region-item" id="customCagrLabel_1">
+                            <input type="radio" name="use_custom_cagr" value="yes"
+                                onchange="toggleCustomCagr('customCagrLabel_1')">
+                            <span class="region-dot"></span>
+                            <span>Custom</span>
+                        </label>
                     </div>
-                    <div class="custom-select-wrapper" style="flex:1">
-                        <select class="custom-select" id="cagr_end_year"
-                                name="cagr_end_year" onchange="updateTopBar()">
-                            <option value="">2nd Year</option>
-                            {% for year in market_size_years %}
-                            <option value="{{ year }}"
-                                {% if year == default_cagr_end %}selected{% endif %}>
-                                {{ year }}</option>
-                            {% endfor %}
-                        </select>
-                        <span class="select-arrow">▼</span>
+                    <div id="customCagrInfo" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px; display: none;">
+                        <span id="customCagrStatus">No custom CAGR loaded</span>
                     </div>
                 </div>
-                <div class="error-msg" id="cagrYearError"></div>
-            </div>
 
-            <!-- PREDICTION START YEAR -->
-            <div>
-                <div class="form-section-label">
-                    Prediction Start Year
-                    <span class="label-hint">(within revenue years)</span>
+                <!-- COLUMN SELECTION -->
+                <div>
+                    <div class="form-section-label">Display Columns</div>
+                    <div class="column-selection-container">
+                        <div class="column-group">
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_svp" value="SVP" checked>
+                                <span>SVP</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_subseg" value="Sub-segment 2" checked>
+                                <span>Sub-segment 2</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_market" value="Market_Category" checked>
+                                <span>Market Category</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_cagr" value="CAGR" checked>
+                                <span>Custom CAGR</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_mif_cagr" value="MIF_CAGR" checked>
+                                <span>MIF CAGR</span>
+                            </label>
+                        </div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px;">
+                            ℹ️ Revenue and prediction columns are always shown
+                        </div>
+                    </div>
                 </div>
-                <div class="custom-select-wrapper">
-                    <select class="custom-select" id="pred_start_year"
-                            name="pred_start_year" onchange="updateTopBar()">
-                        <option value="">-- Select --</option>
-                        {% for year in revenue_years %}
-                        <option value="{{ year }}"
-                            {% if year == default_pred_start %}selected{% endif %}>
-                            {{ year }}</option>
-                        {% endfor %}
-                    </select>
-                    <span class="select-arrow">▼</span>
-                </div>
-                <div class="error-msg" id="predStartError"></div>
-            </div>
 
-            <!-- REGION -->
-            <div>
-                <div class="form-section-label">Region</div>
-                <div class="region-grid">
-                    {% for region in regions %}
-                    <label class="region-item {% if loop.first %}active{% endif %}"
-                           id="regionLabel_{{ loop.index }}">
-                        <input type="radio" name="region" value="{{ region }}"
-                               {% if loop.first %}checked{% endif %}
-                               onchange="toggleRegion('regionLabel_{{ loop.index }}')">
-                        <span class="region-dot {% if loop.first %}active{% endif %}"></span>
-                        <span>{{ region }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
-            <!-- CUSTOM CAGR SECTION -->
-            <div>
-                <div class="form-section-label">Custom CAGR</div>
-                <div class="region-grid">
-                    <label class="region-item active" id="customCagrLabel_0">
-                        <input type="radio" name="use_custom_cagr" value="no" checked
-                            onchange="toggleCustomCagr('customCagrLabel_0')">
-                        <span class="region-dot active"></span>
-                        <span>Standard</span>
-                    </label>
-                    <label class="region-item" id="customCagrLabel_1">
-                        <input type="radio" name="use_custom_cagr" value="yes"
-                            onchange="toggleCustomCagr('customCagrLabel_1')">
-                        <span class="region-dot"></span>
-                        <span>Custom</span>
-                    </label>
-                </div>
-                <div id="customCagrInfo" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px; display: none;">
-                    <span id="customCagrStatus">No custom CAGR loaded</span>
-                </div>
             </div>
 
             <button type="submit" class="run-btn" id="runBtn">▶ Run Analysis</button>
@@ -358,20 +403,25 @@ let element_selected_offer = '—';
 // ── chart toggle ──────────────────────────────────────────────────────────────
 function toggleChart() {
     const wrapper = document.getElementById('chartWrapper');
-    const btn     = document.getElementById('toggleChartBtn');
-    chartVisible  = !chartVisible;
+    const kpiStrip = document.querySelector('.kpi-strip');
+    const btn = document.getElementById('toggleChartBtn');
+    chartVisible = !chartVisible;
+    
     if (chartVisible) {
-        wrapper.style.height  = '220px';
+        wrapper.style.height = '220px';
         wrapper.style.opacity = '1';
         wrapper.classList.remove('collapsed');
+        kpiStrip.style.display = 'flex';
         btn.textContent = '▲ Hide Chart';
     } else {
-        wrapper.style.height  = '0px';
+        wrapper.style.height = '0px';
         wrapper.style.opacity = '0';
         wrapper.classList.add('collapsed');
+        kpiStrip.style.display = 'none';
         btn.textContent = '▼ Show Chart';
     }
 }
+
 
 function toggleCustomCagr(activeLabelId) {
     document.querySelectorAll('[id^="customCagrLabel_"]').forEach(el => {
@@ -589,6 +639,31 @@ function renderTable(tableData, columnOrder) {
     updateSearchCount();
 }
 
+function toggleAdvancedOptions() {
+    const advOptions = document.getElementById('advancedOptions');
+    const toggleBtn = document.getElementById('advancedToggleBtn');
+    
+    const isVisible = advOptions.style.display !== 'none';
+    advOptions.style.display = isVisible ? 'none' : 'block';
+    toggleBtn.classList.toggle('active', !isVisible);
+    
+    // Save preference to localStorage
+    localStorage.setItem('advancedOptionsVisible', !isVisible);
+}
+
+// Restore advanced options visibility on page load
+window.addEventListener('DOMContentLoaded', () => {
+    const savedState = localStorage.getItem('advancedOptionsVisible');
+    if (savedState === 'true') {
+        document.getElementById('advancedOptions').style.display = 'block';
+        document.getElementById('advancedToggleBtn').classList.add('active');
+    }
+    updateTopBar();
+    filterDisplayEndYears();
+    filterCagrEndYears();
+});
+
+
 // ── selectTableRow ────────────────────────────────────────────────────────────
 function selectTableRow(el, idx) {
     if (el.classList.contains('total-row')) return;
@@ -736,6 +811,11 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             'Please select a prediction start year'; return;
     }
 
+    // ✅ Collect selected columns
+    const selectedColumns = Array.from(document.querySelectorAll('.column-checkbox input:checked'))
+        .map(cb => cb.value)
+        .filter(v => v);
+
     document.getElementById('loadingOverlay').classList.add('active');
     document.getElementById('runBtn').disabled = true;
 
@@ -744,8 +824,10 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
     
         const formData = new FormData(this);
         formData.append('use_custom_cagr', useCustomCagr);
+        formData.append('selected_columns', JSON.stringify(selectedColumns));
+        
         const resp = await fetch('/results_data',
-            { method:'POST', body: new FormData(this) });
+            { method:'POST', body: formData });
         const data = await resp.json();
 
         if (data.error) {
@@ -761,6 +843,7 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         document.getElementById('kpiSelectedElementCagr').textContent  = '—';
         document.getElementById('kpiCagrActualInterval').textContent = data.actual_cagr;
         document.getElementById('kpiAvgCagr').textContent   = data.avg_cagr;
+        
         let totalCagr = '—';
         if (data.tot_predicted && data.cagr_start_year && data.cagr_end_year) {
             const startYear = parseInt(data.cagr_start_year);
@@ -769,12 +852,10 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             const startVal = data.tot_predicted[startYear];
             const endVal = data.tot_predicted[endYear];
             
-            console.log(data.tot_predicted);
             if (startVal !== undefined && endVal !== undefined && startVal > 0 && endYear > startYear) {
                 const cagr = Math.pow(endVal / startVal, 1 / (endYear - startYear)) - 1;
                 totalCagr = (cagr * 100).toFixed(2) + '%';
             } else if (startVal === undefined || endVal === undefined) {
-                // ✅ Show error if data is missing
                 console.warn(`Missing market size data for years ${startYear}-${endYear}`);
                 totalCagr = 'N/A';
             }
@@ -802,6 +883,7 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         document.getElementById('runBtn').disabled = false;
     }
 });
+
 
 // ── init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {

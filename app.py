@@ -4,6 +4,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from pipeline import *
+import json
 import os
 import shutil
 from datetime import datetime
@@ -54,7 +55,6 @@ def index():
         default_pred_start=default_pred_start,
     )
 
-
 @app.route('/results_data', methods=['POST'])
 def results_data():
     cagr_start_year    = int(request.form.get('cagr_start_year'))
@@ -64,6 +64,15 @@ def results_data():
     pred_start_year    = int(request.form.get('pred_start_year'))
     selected_svps      = request.form.getlist('svp')
     region             = request.form.get('region')
+    use_custom_cagr    = request.form.get('use_custom_cagr', 'no')
+    
+    # ✅ Parse selected columns
+    selected_columns_json = request.form.get('selected_columns', '[]')
+    try:
+        selected_columns = json.loads(selected_columns_json)
+    except:
+        selected_columns = None
+    
     result = resultat_data(df_all_data=df_all_data,
                            display_start_year=display_start_year, 
                            display_end_year=display_end_year, 
@@ -71,8 +80,12 @@ def results_data():
                            cagr_end_year=cagr_end_year, 
                            pred_start_year=pred_start_year, 
                            selected_svps=selected_svps, 
-                           region=region)
+                           region=region,
+                           use_custom_cagr=use_custom_cagr,
+                           selected_columns=selected_columns)
+
     return jsonify(result)
+
 
 @app.route('/download_excel', methods=['POST'])
 def download_excel():

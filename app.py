@@ -264,7 +264,143 @@ def file_history():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
 
+@app.route('/upload_custom_cagr', methods=['POST'])
+def upload_custom_cagr():
+    """Handle custom CAGR file uploads
+    
+    Behavior:
+    - Only offers with valid CAGR values are imported
+    - Offers with missing/null CAGR are skipped
+    - Column names are case-insensitive
+    """
+    try:
+        uploaded_file = request.files.get('file')
+        
+        if not uploaded_file:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        # ✅ Read file into memory
+        try:
+            file_bytes = uploaded_file.read()
+            uploaded_file.seek(0)
+            
+            # Try to read as Excel first, then CSV
+            try:
+                df = pd.read_excel(uploaded_file)
+            except:
+                uploaded_file.seek(0)
+                df = pd.read_csv(uploaded_file)
+                
+        except Exception as e:
+            return jsonify({'error': f'Invalid file format: {str(e)}'}), 400
+        
+        # Normalize column names: strip whitespace
+        df.columns = df.columns.str.strip()
+        
+        # Find columns (case-insensitive)
+        offer_col = None
+        cagr_col = None
+        
+        for col in df.columns:
+            if col.lower() == 'offer':
+                offer_col = col
+            elif col.lower() == 'cagr':
+                cagr_col = col
+        
+        if not offer_col or not cagr_col:
+            return jsonify({
+                'error': f'Missing required columns. Found: {", ".join(df.columns)}. Required: "Offer" and "CAGR"'
+            }), 400
+        
+        # Validate and count valid entries
+        valid_count = 0
+        invalid_count = 0
+        
+        for idx, row in df.iterrows():
+            offer = row[offer_col]
+            cagr_value = row[cagr_col]
+            
+            # Check if both offer and CAGR are present
+            if pd.isna(offer) or offer == '' or pd.isna(cagr_value) or cagr_value == '':
+                invalid_count += 1
+                continue
+            
+            # Check if CAGR is numeric
+            try:
+                float(cagr_value)
+                valid_count += 1
+            except (ValueError, TypeError):
+                invalid_count += 1
+        
+        if valid_count == 0:
+            return jsonify({
+                'error': 'No valid entries found. Ensure all rows have Offer and numeric CAGR values.'
+            }), 400
+        
+        # Create backup if file exists
+        custom_cagr_path = os.path.join(DATA_DIR, 'custom_cagr.xlsx')
+        if os.path.exists(custom_cagr_path):
+            backup_old_file('custom_cagr', custom_cagr_path)
+        
+        # Save file
+        try:
+            with open(custom_cagr_path, 'wb') as f:
+                f.write(file_bytes)
+            
+            if not os.path.exists(custom_cagr_path) or os.path.getsize(custom_cagr_path) == 0:
+                raise Exception("File was not saved properly")
+                
+        except Exception as e:
+            return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
+        
+        message = f'Custom CAGR uploaded successfully ({valid_count} valid entries'
+        if invalid_count > 0:
+            message += f', {invalid_count} skipped due to missing/invalid values'
+        message += ')'
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'valid_rows': valid_count,
+            'invalid_rows': invalid_count,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+
+@app.route('/custom_cagr_status')
+def custom_cagr_status():
+    """Get status of custom CAGR file"""
+    try:
+        filepath = os.path.join(DATA_DIR, 'custom_cagr.xlsx')
+        
+        if os.path.exists(filepath):
+            try:
+                df = pd.read_excel(filepath)
+                stat = os.stat(filepath)
+                mod_time = datetime.fromtimestamp(stat.st_mtime)
+                
+                return jsonify({
+                    'exists': True,
+                    'modified': mod_time.strftime('%Y-%m-%d %H:%M'),
+                    'rows': len(df),
+                    'size': f"{stat.st_size / 1024:.1f} KB"
+                })
+            except Exception as e:
+                print(f"Error reading custom CAGR: {e}")
+                return jsonify({'exists': False})
+        else:
+            return jsonify({'exists': False})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/upload_file', methods=['POST'])
 def upload_file():

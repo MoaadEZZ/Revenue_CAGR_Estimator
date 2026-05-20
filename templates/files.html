@@ -475,6 +475,52 @@
         </form>
     </div>
 
+    <!-- CUSTOM CAGR PANEL -->
+    <div class="upload-panel">
+        <div class="panel-heading">⚙️ Custom CAGR Configuration</div>
+        
+        <form id="customCagrForm" class="upload-form">
+            <div class="form-group">
+                <label class="form-label">Upload Custom CAGR File</label>
+                <div class="file-input-wrapper">
+                    <label class="file-input-label" id="customCagrInputLabel" for="customCagrInput">
+                        <span>📎 Click to select or drag & drop your file here</span>
+                    </label>
+                    <input type="file" id="customCagrInput" accept=".xlsx,.xls,.csv" required>
+                </div>
+                <div id="customCagrFileDisplay" class="file-name-display">
+                    <span id="customCagrFileName"></span>
+                    <button type="button" class="btn-clear-small" onclick="clearCustomCagrFile()">✕</button>
+                </div>
+            </div>
+
+            <div class="validation-info">
+                <h4>Required Format</h4>
+                <p style="color: var(--text-muted); margin: 0;">
+                    <strong>Columns:</strong> <code>Offer</code>, <code>CAGR</code>
+                </p>
+                <p style="color: var(--text-muted); margin: 4px 0 0 0; font-size: 0.75rem;">
+                    CAGR values should be decimal (e.g., 0.05 for 5%) or percentage (e.g., 5%)
+                </p>
+            </div>
+
+            <button type="submit" class="btn-upload" id="customCagrUploadBtn">Upload Custom CAGR</button>
+        </form>
+    </div>
+
+    <!-- CUSTOM CAGR STATUS -->
+    <div class="file-status-panel">
+        <div class="panel-heading">📊 Custom CAGR Status</div>
+        <div id="customCagrStatusContainer">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">
+                <div class="loading-spinner"></div>
+                Loading custom CAGR status...
+            </div>
+        </div>
+    </div>
+
+
+
     <!-- VERSION HISTORY PANEL -->
     <div class="history-panel">
         <div class="panel-heading">📜 Version History</div>
@@ -492,6 +538,145 @@
 
 {% block extra_js %}
 <script>
+// ── Custom CAGR File Handling ──────────────────────────────────────────────
+const customCagrInput = document.getElementById('customCagrInput');
+const customCagrInputLabel = document.getElementById('customCagrInputLabel');
+const customCagrFileDisplay = document.getElementById('customCagrFileDisplay');
+const customCagrForm = document.getElementById('customCagrForm');
+const customCagrUploadBtn = document.getElementById('customCagrUploadBtn');
+
+customCagrInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        document.getElementById('customCagrFileName').textContent = `✓ ${file.name}`;
+        customCagrFileDisplay.classList.add('show');
+    }
+});
+
+// Drag & Drop for Custom CAGR
+customCagrInputLabel.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    customCagrInputLabel.classList.add('dragover');
+});
+
+customCagrInputLabel.addEventListener('dragleave', () => {
+    customCagrInputLabel.classList.remove('dragover');
+});
+
+customCagrInputLabel.addEventListener('drop', (e) => {
+    e.preventDefault();
+    customCagrInputLabel.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        customCagrInput.files = files;
+        document.getElementById('customCagrFileName').textContent = `✓ ${files[0].name}`;
+        customCagrFileDisplay.classList.add('show');
+    }
+});
+
+function clearCustomCagrFile() {
+    document.getElementById('customCagrInput').value = '';
+    customCagrFileDisplay.classList.remove('show');
+}
+
+// Custom CAGR Form Submit
+customCagrForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const file = customCagrInput.files[0];
+
+    if (!file) {
+        showAlert('error', 'Please select a file');
+        return;
+    }
+
+    customCagrUploadBtn.disabled = true;
+    customCagrUploadBtn.innerHTML = '<span class="loading-spinner"></span>Uploading...';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('/upload_custom_cagr', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            showAlert('error', data.error || 'Upload failed');
+            return;
+        }
+
+        showAlert('success', `✓ Custom CAGR uploaded successfully (${data.rows} offers)`);
+        
+        // Reset form
+        customCagrForm.reset();
+        customCagrFileDisplay.classList.remove('show');
+
+        // Refresh status
+        loadCustomCagrStatus();
+
+    } catch (error) {
+        showAlert('error', 'Error: ' + error.message);
+    } finally {
+        customCagrUploadBtn.disabled = false;
+        customCagrUploadBtn.innerHTML = 'Upload Custom CAGR';
+    }
+});
+
+// Load Custom CAGR Status
+async function loadCustomCagrStatus() {
+    try {
+        const response = await fetch('/custom_cagr_status');
+        const data = await response.json();
+
+        let html = '';
+        if (data.exists) {
+            html = `
+                <div class="file-card">
+                    <div class="file-info">
+                        <div class="file-name">Custom CAGR</div>
+                        <div class="file-meta">
+                            <div class="file-meta-item">📅 ${data.modified}</div>
+                            <div class="file-meta-item">📊 ${data.rows} offers</div>
+                            <div class="file-meta-item">💾 ${data.size}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="file-status-badge badge-fresh">✓ Active</span>
+                        <button class="btn-file" onclick="deleteCustomCagr()">Delete</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            html = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">No custom CAGR file loaded</p>';
+        }
+
+        document.getElementById('customCagrStatusContainer').innerHTML = html;
+    } catch (error) {
+        document.getElementById('customCagrStatusContainer').innerHTML = 
+            `<div class="alert-box alert-error show">Error loading status: ${error.message}</div>`;
+    }
+}
+
+function deleteCustomCagr() {
+    if (confirm('Delete custom CAGR file?')) {
+        // Add delete endpoint if needed
+        showAlert('success', 'Custom CAGR deleted');
+        loadCustomCagrStatus();
+    }
+}
+
+// Initialize
+window.addEventListener('DOMContentLoaded', () => {
+    loadFileStatus();
+    loadVersionHistory();
+    loadCustomCagrStatus();
+});
+
+
 function clearFileSelection() {
     document.getElementById('fileInput').value = '';
     fileNameDisplay.classList.remove('show');

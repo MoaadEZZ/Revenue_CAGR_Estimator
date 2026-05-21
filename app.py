@@ -40,8 +40,18 @@ def index():
     default_display_end   = market_size_years[-1] if market_size_years else revenue_years[-1]
     default_cagr_start    = revenue_years[-1]   if revenue_years    else market_size_years[0]
     default_cagr_end      = market_size_years[-1] if market_size_years else revenue_years[-1]
-    # Default pred start = last revenue year (so overlap starts there)
     default_pred_start    = revenue_years[-1]   if revenue_years    else market_size_years[0]
+
+    # ✅ Get warnings from dataframe attributes
+    warnings = []
+    if df_all_data is not None and 'missing_offers' in df_all_data.attrs:
+        missing_offers = df_all_data.attrs['missing_offers']
+        if missing_offers:
+            warnings.append({
+                'type': 'warning',
+                'message': f'{len(missing_offers)} offers have incomplete data in CAGR Mapper',
+                'details': missing_offers[:10]  # Show first 10
+            })
 
     return render_template('index.html',
         revenue_years=revenue_years,
@@ -53,7 +63,9 @@ def index():
         default_cagr_start=default_cagr_start,
         default_cagr_end=default_cagr_end,
         default_pred_start=default_pred_start,
+        warnings=warnings,
     )
+
 
 @app.route('/results_data', methods=['POST'])
 def results_data():
@@ -66,7 +78,11 @@ def results_data():
     region             = request.form.get('region')
     use_custom_cagr    = request.form.get('use_custom_cagr', 'no')
     
-    # ✅ Parse selected columns
+    # ✅ New parameters
+    subseg_filter      = request.form.get('subseg_filter', 'all')
+    aggregation_level  = request.form.get('aggregation_level', 'offer')
+    
+    # Parse selected columns
     selected_columns_json = request.form.get('selected_columns', '[]')
     try:
         selected_columns = json.loads(selected_columns_json)
@@ -82,10 +98,11 @@ def results_data():
                            selected_svps=selected_svps, 
                            region=region,
                            use_custom_cagr=use_custom_cagr,
-                           selected_columns=selected_columns)
+                           selected_columns=selected_columns,
+                           subseg_filter=subseg_filter,
+                           aggregation_level=aggregation_level)
 
     return jsonify(result)
-
 
 @app.route('/download_excel', methods=['POST'])
 def download_excel():

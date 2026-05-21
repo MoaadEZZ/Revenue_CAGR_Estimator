@@ -189,6 +189,10 @@
                     <div class="column-selection-container">
                         <div class="column-group">
                             <label class="column-checkbox">
+                                <input type="checkbox" name="col_offer" value="Offer" checked>
+                                <span>Offer</span>
+                            </label>
+                            <label class="column-checkbox">
                                 <input type="checkbox" name="col_svp" value="SVP" checked>
                                 <span>SVP</span>
                             </label>
@@ -199,6 +203,22 @@
                             <label class="column-checkbox">
                                 <input type="checkbox" name="col_market" value="Market_Category" checked>
                                 <span>Market Category</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_business_line" value="Business_Line">
+                                <span>Business Line</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_domain" value="Domain">
+                                <span>Domain</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_product" value="Product">
+                                <span>Product</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" name="col_rep_code" value="Rep_code">
+                                <span>Rep_code</span>
                             </label>
                             <label class="column-checkbox">
                                 <input type="checkbox" name="col_cagr" value="CAGR" checked>
@@ -212,6 +232,63 @@
                         <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px;">
                             ℹ️ Revenue and prediction columns are always shown
                         </div>
+                    </div>
+                </div>
+
+
+                <!-- SUB-SEGMENT FILTER -->
+                <div>
+                    <div class="form-section-label">Sub-segment Filter</div>
+                    <div class="region-grid">
+                        <label class="region-item active" id="subSegLabel_0">
+                            <input type="radio" name="subseg_filter" value="all" checked
+                                onchange="toggleSubSegFilter('subSegLabel_0')">
+                            <span class="region-dot active"></span>
+                            <span>All Offers</span>
+                        </label>
+                        <label class="region-item" id="subSegLabel_1">
+                            <input type="radio" name="subseg_filter" value="with_subseg"
+                                onchange="toggleSubSegFilter('subSegLabel_1')">
+                            <span class="region-dot"></span>
+                            <span>With Sub-segment</span>
+                        </label>
+                        <label class="region-item" id="subSegLabel_2">
+                            <input type="radio" name="subseg_filter" value="no_subseg"
+                                onchange="toggleSubSegFilter('subSegLabel_2')">
+                            <span class="region-dot"></span>
+                            <span>No Sub-segment</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- AGGREGATION LEVEL -->
+                <div>
+                    <div class="form-section-label">
+                        Revenue Aggregation
+                        <span class="label-hint">(for Product/Rep_code columns)</span>
+                    </div>
+                    <div class="region-grid">
+                        <label class="region-item active" id="aggLabel_0">
+                            <input type="radio" name="aggregation_level" value="offer" checked
+                                onchange="toggleAggregation('aggLabel_0')">
+                            <span class="region-dot active"></span>
+                            <span>By Offer</span>
+                        </label>
+                        <label class="region-item" id="aggLabel_1">
+                            <input type="radio" name="aggregation_level" value="product"
+                                onchange="toggleAggregation('aggLabel_1')">
+                            <span class="region-dot"></span>
+                            <span>By Product</span>
+                        </label>
+                        <label class="region-item" id="aggLabel_2">
+                            <input type="radio" name="aggregation_level" value="rep_code"
+                                onchange="toggleAggregation('aggLabel_2')">
+                            <span class="region-dot"></span>
+                            <span>By Rep_code</span>
+                        </label>
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px;">
+                        ℹ️ Affects how revenue is summed when Product/Rep_code columns are displayed
                     </div>
                 </div>
 
@@ -467,6 +544,28 @@ function filterCagrEndYears() {
         o.disabled = parseInt(o.value) <= sy;
     });
     if (parseInt(es.value) <= sy) es.value = '';
+}
+
+function toggleSubSegFilter(labelId) {
+    document.querySelectorAll('[id^="subSegLabel_"]').forEach(lbl => {
+        lbl.classList.remove('active');
+        lbl.querySelector('.region-dot').classList.remove('active');
+    });
+    const label = document.getElementById(labelId);
+    label.classList.add('active');
+    label.querySelector('.region-dot').classList.add('active');
+    updateTopBar();
+}
+
+function toggleAggregation(labelId) {
+    document.querySelectorAll('[id^="aggLabel_"]').forEach(lbl => {
+        lbl.classList.remove('active');
+        lbl.querySelector('.region-dot').classList.remove('active');
+    });
+    const label = document.getElementById(labelId);
+    label.classList.add('active');
+    label.querySelector('.region-dot').classList.add('active');
+    updateTopBar();
 }
 
 // ── top bar ───────────────────────────────────────────────────────────────────
@@ -811,10 +910,19 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             'Please select a prediction start year'; return;
     }
 
-    // ✅ Collect selected columns
-    const selectedColumns = Array.from(document.querySelectorAll('.column-checkbox input:checked'))
-        .map(cb => cb.value)
-        .filter(v => v);
+    // ✅ Collect selected columns with proper mapping
+    const selectedColumns = [];
+    document.querySelectorAll('.column-checkbox input:checked').forEach(cb => {
+        const value = cb.value;
+        if (value === 'CAGR') {
+            selectedColumns.push('CAGR');
+        } else if (value === 'MIF_CAGR') {
+            selectedColumns.push('MIF_CAGR');
+        } else {
+            selectedColumns.push(value);
+        }
+    });
+
 
     document.getElementById('loadingOverlay').classList.add('active');
     document.getElementById('runBtn').disabled = true;
@@ -994,5 +1102,108 @@ async function downloadTable() {
         document.getElementById('loadingOverlay').classList.remove('active');
     }
 }
+
+// ── Initialize warnings ────────────────────────────────────────────────────
+function initializeWarnings() {
+    const warningsData = {
+        {% if warnings %}
+        warnings: [
+            {% for warning in warnings %}
+            {
+                type: '{{ warning.type }}',
+                message: '{{ warning.message }}',
+                details: [
+                    {% for item in warning.details %}
+                    '{{ item }}',
+                    {% endfor %}
+                ]
+            },
+            {% endfor %}
+        ]
+        {% else %}
+        warnings: []
+        {% endif %}
+    };
+
+    if (warningsData.warnings.length === 0) return;
+
+    const container = document.getElementById('warningsContainer');
+    container.classList.add('active');
+
+    warningsData.warnings.forEach(warning => {
+        const warningBox = document.createElement('div');
+        warningBox.className = `warning-box warning-${warning.type}`;
+        
+        let detailsHtml = '';
+        if (warning.details && warning.details.length > 0) {
+            detailsHtml = `
+                <div class="warning-details">
+                    <details>
+                        <summary>View details (${warning.details.length} items)</summary>
+                        <ul>
+                            ${warning.details.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                    </details>
+                </div>
+            `;
+        }
+
+        warningBox.innerHTML = `
+            <div class="warning-header">
+                <span class="warning-icon">⚠️</span>
+                <span class="warning-title">${warning.message}</span>
+                <button type="button" class="warning-close" onclick="removeWarning(this)">✕</button>
+            </div>
+            ${detailsHtml}
+        `;
+
+        container.appendChild(warningBox);
+    });
+
+    // Adjust main layout
+    adjustMainLayoutForWarnings();
+}
+
+function removeWarning(closeBtn) {
+    const warningBox = closeBtn.closest('.warning-box');
+    warningBox.style.animation = 'slideUp 0.3s ease forwards';
+    
+    setTimeout(() => {
+        warningBox.remove();
+        
+        // If no more warnings, hide container
+        const container = document.getElementById('warningsContainer');
+        if (container.children.length === 0) {
+            container.classList.remove('active');
+            adjustMainLayoutForWarnings();
+        }
+    }, 300);
+}
+
+function adjustMainLayoutForWarnings() {
+    const container = document.getElementById('warningsContainer');
+    const mainLayout = document.querySelector('.main-layout');
+    
+    if (container.classList.contains('active') && container.children.length > 0) {
+        const height = container.offsetHeight;
+        mainLayout.style.marginTop = height + 'px';
+        mainLayout.classList.add('warnings-visible');
+    } else {
+        mainLayout.style.marginTop = '0';
+        mainLayout.classList.remove('warnings-visible');
+    }
+}
+
+// Initialize on page load
+window.addEventListener('DOMContentLoaded', () => {
+    initializeWarnings();
+    updateTopBar();
+    filterDisplayEndYears();
+    filterCagrEndYears();
+});
+
+// Adjust on window resize
+window.addEventListener('resize', adjustMainLayoutForWarnings);
+
 </script>
 {% endblock %}

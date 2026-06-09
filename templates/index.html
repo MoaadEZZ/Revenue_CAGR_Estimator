@@ -20,126 +20,183 @@
         <span>Running analysis...</span>
     </div>
 
-    <!-- LEFT PANEL -->
+    <!-- ══════════════════ LEFT PANEL ══════════════════ -->
     <div class="left-panel">
         <div class="panel-title">Parameters</div>
         <form id="analysisForm" method="POST" action="/results_data">
-            <!-- BASIC OPTIONS (Always visible) -->
-            <div id="basicOptions">
-                <!-- SVP -->
-                <div>
-                    <div class="form-section-label">SVP Categories</div>
-                    <div class="svp-grid">
-                        {% for svp in svp_options %}
-                        <label class="svp-item" id="svpLabel_{{ loop.index }}">
-                            <input type="checkbox" name="svp" value="{{ svp }}"
-                                onchange="toggleSvp(this,'svpLabel_{{ loop.index }}')">
-                            <span class="svp-dot"></span>
-                            <span>{{ svp }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
-                    <div class="error-msg" id="svpError"></div>
-                </div>
 
-                <!-- DISPLAY INTERVAL -->
-                <div>
-                    <div class="form-section-label">
-                        Display Interval
-                        <span class="label-hint">(revenue min → market max)</span>
-                    </div>
-                    <div class="year-row">
-                        <div class="custom-select-wrapper" style="flex:1">
-                            <select class="custom-select" id="display_start_year"
-                                    name="display_start_year"
-                                    onchange="updateTopBar();filterDisplayEndYears();">
-                                <option value="">Start</option>
-                                {% for year in revenue_years %}
-                                <option value="{{ year }}"
-                                    {% if year == default_display_start %}selected{% endif %}>
-                                    {{ year }}</option>
-                                {% endfor %}
-                            </select>
-                            <span class="select-arrow">▼</span>
-                        </div>
-                        <div class="custom-select-wrapper" style="flex:1">
-                            <select class="custom-select" id="display_end_year"
-                                    name="display_end_year" onchange="updateTopBar()">
-                                <option value="">End</option>
-                                {% for year in market_size_years %}
-                                <option value="{{ year }}"
-                                    {% if year == default_display_end %}selected{% endif %}>
-                                    {{ year }}</option>
-                                {% endfor %}
-                            </select>
-                            <span class="select-arrow">▼</span>
-                        </div>
-                    </div>
-                    <div class="error-msg" id="displayYearError"></div>
-                </div>
-
-                <!-- CAGR YEARS -->
-                <div>
-                    <div class="form-section-label">
-                        CAGR Years
-                        <span class="label-hint">(from market size data)</span>
-                    </div>
-                    <div class="year-row">
-                        <div class="custom-select-wrapper" style="flex:1">
-                            <select class="custom-select" id="cagr_start_year"
-                                    name="cagr_start_year"
-                                    onchange="updateTopBar();filterCagrEndYears();">
-                                <option value="">1st Year</option>
-                                {% for year in market_size_years %}
-                                <option value="{{ year }}"
-                                    {% if year == default_cagr_start %}selected{% endif %}>
-                                    {{ year }}</option>
-                                {% endfor %}
-                            </select>
-                            <span class="select-arrow">▼</span>
-                        </div>
-                        <div class="custom-select-wrapper" style="flex:1">
-                            <select class="custom-select" id="cagr_end_year"
-                                    name="cagr_end_year" onchange="updateTopBar()">
-                                <option value="">2nd Year</option>
-                                {% for year in market_size_years %}
-                                <option value="{{ year }}"
-                                    {% if year == default_cagr_end %}selected{% endif %}>
-                                    {{ year }}</option>
-                                {% endfor %}
-                            </select>
-                            <span class="select-arrow">▼</span>
-                        </div>
-                    </div>
-                    <div class="error-msg" id="cagrYearError"></div>
-                </div>
-
-                <!-- REGION -->
-                <div>
-                    <div class="form-section-label">Region</div>
-                    <div class="region-grid">
-                        {% for region in regions %}
-                        <label class="region-item {% if loop.first %}active{% endif %}"
-                            id="regionLabel_{{ loop.index }}">
-                            <input type="radio" name="region" value="{{ region }}"
-                                {% if loop.first %}checked{% endif %}
-                                onchange="toggleRegion('regionLabel_{{ loop.index }}')">
-                            <span class="region-dot {% if loop.first %}active{% endif %}"></span>
-                            <span>{{ region }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
+            <!-- SVP -->
+            <div>
+                <div class="form-section-label">SVP Categories</div>
+                <div class="svp-grid">
+                    {% for svp in svp_options %}
+                    <label class="svp-item" id="svpLabel_{{ loop.index }}">
+                        <input type="checkbox" name="svp" value="{{ svp }}"
+                            onchange="toggleSvp(this,'svpLabel_{{ loop.index }}')">
+                        <span class="svp-dot"></span>
+                        <span>{{ svp }}</span>
+                    </label>
+                    {% endfor %}
                 </div>
             </div>
 
-            <!-- FORM HEADER WITH TOGGLE -->
-            <button type="button" style="margin-top: 10px;" class="advanced-toggle-btn" id="advancedToggleBtn" onclick="toggleAdvancedOptions()">
-                    ▼ Advanced Options
+            <!-- CVP -->
+            <div>
+                <div class="form-section-label">CVP Categories</div>
+                <div class="svp-grid" id="cvpGrid">
+                    {% if cvp_options %}
+                        {% if cvp_options is mapping %}
+                            {# NEW FORMAT: object with sections #}
+                            {% if cvp_options.with_offers %}
+                            <div style="margin-bottom:12px;">
+                                <div style="font-weight:600;font-size:0.85rem;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">
+                                    ✓ With Offers
+                                </div>
+                                {% for cvp in cvp_options.with_offers %}
+                                <label class="svp-item" id="cvpLabel_{{ loop.index }}">
+                                    <input type="checkbox" name="cvp" value="{{ cvp }}"
+                                        onchange="toggleSvp(this,'cvpLabel_{{ loop.index }}')">
+                                    <span class="svp-dot"></span>
+                                    <span>{{ cvp }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            
+                            {% if cvp_options.without_offers %}
+                            <div style="padding-top:8px;border-top:1px solid var(--border-color);">
+                                <div style="font-weight:600;font-size:0.85rem;color:var(--text-muted);margin:8px 0 6px 0;text-transform:uppercase;letter-spacing:0.5px;">
+                                    ✗ No Offers
+                                </div>
+                                {% for cvp in cvp_options.without_offers %}
+                                <label class="svp-item" id="cvpLabel_{{ loop.index }}" style="opacity:0.6;">
+                                    <input type="checkbox" name="cvp" value="{{ cvp }}" disabled
+                                        onchange="toggleSvp(this,'cvpLabel_{{ loop.index }}')">
+                                    <span class="svp-dot"></span>
+                                    <span style="color:var(--text-muted);">{{ cvp }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            {# OLD FORMAT: simple array #}
+                            {% for cvp in cvp_options %}
+                            <label class="svp-item" id="cvpLabel_{{ loop.index }}">
+                                <input type="checkbox" name="cvp" value="{{ cvp }}"
+                                    onchange="toggleSvp(this,'cvpLabel_{{ loop.index }}')">
+                                <span class="svp-dot"></span>
+                                <span>{{ cvp }}</span>
+                            </label>
+                            {% endfor %}
+                        {% endif %}
+                    {% else %}
+                        <div style="font-size:0.72rem;color:var(--text-muted);
+                                    padding:6px 0;" id="cvpPlaceholder">
+                            No CVP data found in All products requested.xlsx
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+
+            <!-- DISPLAY INTERVAL -->
+            <div>
+                <div class="form-section-label">
+                    Display Interval
+                    <span class="label-hint">(revenue min → market max)</span>
+                </div>
+                <div class="year-row">
+                    <div class="custom-select-wrapper" style="flex:1">
+                        <select class="custom-select" id="display_start_year"
+                                name="display_start_year"
+                                onchange="updateTopBar();filterDisplayEndYears();">
+                            <option value="">Start</option>
+                            {% for year in revenue_years %}
+                            <option value="{{ year }}"
+                                {% if year == default_display_start %}selected{% endif %}>
+                                {{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                    <div class="custom-select-wrapper" style="flex:1">
+                        <select class="custom-select" id="display_end_year"
+                                name="display_end_year" onchange="updateTopBar()">
+                            <option value="">End</option>
+                            {% for year in market_size_years %}
+                            <option value="{{ year }}"
+                                {% if year == default_display_end %}selected{% endif %}>
+                                {{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                </div>
+                <div class="error-msg" id="displayYearError"></div>
+            </div>
+
+            <!-- CAGR YEARS -->
+            <div>
+                <div class="form-section-label">
+                    CAGR Years
+                    <span class="label-hint">(from market size data)</span>
+                </div>
+                <div class="year-row">
+                    <div class="custom-select-wrapper" style="flex:1">
+                        <select class="custom-select" id="cagr_start_year"
+                                name="cagr_start_year"
+                                onchange="updateTopBar();filterCagrEndYears();">
+                            <option value="">1st Year</option>
+                            {% for year in market_size_years %}
+                            <option value="{{ year }}"
+                                {% if year == default_cagr_start %}selected{% endif %}>
+                                {{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                    <div class="custom-select-wrapper" style="flex:1">
+                        <select class="custom-select" id="cagr_end_year"
+                                name="cagr_end_year" onchange="updateTopBar()">
+                            <option value="">2nd Year</option>
+                            {% for year in market_size_years %}
+                            <option value="{{ year }}"
+                                {% if year == default_cagr_end %}selected{% endif %}>
+                                {{ year }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="select-arrow">▼</span>
+                    </div>
+                </div>
+                <div class="error-msg" id="cagrYearError"></div>
+            </div>
+
+            <!-- REGION -->
+            <div>
+                <div class="form-section-label">Region</div>
+                <div class="region-grid">
+                    {% for region in regions %}
+                    <label class="region-item {% if loop.first %}active{% endif %}"
+                        id="regionLabel_{{ loop.index }}">
+                        <input type="radio" name="region" value="{{ region }}"
+                            {% if loop.first %}checked{% endif %}
+                            onchange="toggleRegion('regionLabel_{{ loop.index }}')">
+                        <span class="region-dot {% if loop.first %}active{% endif %}"></span>
+                        <span>{{ region }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- ADVANCED TOGGLE -->
+            <button type="button" style="margin-top:10px;" class="advanced-toggle-btn"
+                    id="advancedToggleBtn" onclick="toggleAdvancedOptions()">
+                ▼ Advanced Options
             </button>
 
+            <!-- ADVANCED OPTIONS -->
+            <div id="advancedOptions" class="advanced-options-section" style="display:none;">
 
-            <!-- ADVANCED OPTIONS (Collapsible) -->
-            <div id="advancedOptions" class="advanced-options-section" style="display: none;">
                 <!-- PREDICTION START YEAR -->
                 <div>
                     <div class="form-section-label">
@@ -161,25 +218,28 @@
                     <div class="error-msg" id="predStartError"></div>
                 </div>
 
-                <!-- CUSTOM CAGR SECTION -->
+                <!-- CAGR MODE: MIF / BL / Both -->
                 <div>
-                    <div class="form-section-label">Custom CAGR</div>
+                    <div class="form-section-label">CAGR Application</div>
                     <div class="region-grid">
-                        <label class="region-item active" id="customCagrLabel_0">
+                        <label class="region-item active" id="cagrModeLabel_0">
                             <input type="radio" name="use_custom_cagr" value="no" checked
-                                onchange="toggleCustomCagr('customCagrLabel_0')">
+                                onchange="toggleCagrMode('cagrModeLabel_0')">
                             <span class="region-dot active"></span>
-                            <span>Standard</span>
+                            <span>MIF</span>
                         </label>
-                        <label class="region-item" id="customCagrLabel_1">
+                        <label class="region-item" id="cagrModeLabel_1">
                             <input type="radio" name="use_custom_cagr" value="yes"
-                                onchange="toggleCustomCagr('customCagrLabel_1')">
+                                onchange="toggleCagrMode('cagrModeLabel_1')">
                             <span class="region-dot"></span>
-                            <span>Custom</span>
+                            <span>BL (Custom)</span>
                         </label>
-                    </div>
-                    <div id="customCagrInfo" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px; display: none;">
-                        <span id="customCagrStatus">No custom CAGR loaded</span>
+                        <label class="region-item" id="cagrModeLabel_2">
+                            <input type="radio" name="use_custom_cagr" value="both"
+                                onchange="toggleCagrMode('cagrModeLabel_2')">
+                            <span class="region-dot"></span>
+                            <span>Both</span>
+                        </label>
                     </div>
                 </div>
 
@@ -189,52 +249,46 @@
                     <div class="column-selection-container">
                         <div class="column-group">
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_offer" value="Offer" checked>
-                                <span>Offer</span>
+                                <input type="checkbox" value="SVP" checked> <span>SVP</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_svp" value="SVP" checked>
-                                <span>SVP</span>
+                                <input type="checkbox" value="CVP"> <span>CVP</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_subseg" value="Sub-segment 2" checked>
+                                <input type="checkbox" value="Sub-segment 2" checked>
                                 <span>Sub-segment 2</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_market" value="Market_Category" checked>
+                                <input type="checkbox" value="Market_Category" checked>
                                 <span>Market Category</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_business_line" value="Business_Line">
+                                <input type="checkbox" value="Business_Line">
                                 <span>Business Line</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_domain" value="Domain">
-                                <span>Domain</span>
+                                <input type="checkbox" value="Domain"> <span>Domain</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_product" value="Product">
-                                <span>Product</span>
+                                <input type="checkbox" value="Product"> <span>Product</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_rep_code" value="Rep_code">
-                                <span>Rep_code</span>
+                                <input type="checkbox" value="Rep_code"> <span>Rep_code</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_cagr" value="CAGR" checked>
-                                <span>Custom CAGR</span>
+                                <input type="checkbox" value="BL_CAGR" checked>
+                                <span>BL CAGR (Custom)</span>
                             </label>
                             <label class="column-checkbox">
-                                <input type="checkbox" name="col_mif_cagr" value="MIF_CAGR" checked>
+                                <input type="checkbox" value="MIF_CAGR" checked>
                                 <span>MIF CAGR</span>
                             </label>
                         </div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px;">
+                        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">
                             ℹ️ Revenue and prediction columns are always shown
                         </div>
                     </div>
                 </div>
-
 
                 <!-- SUB-SEGMENT FILTER -->
                 <div>
@@ -244,19 +298,19 @@
                             <input type="radio" name="subseg_filter" value="all" checked
                                 onchange="toggleSubSegFilter('subSegLabel_0')">
                             <span class="region-dot active"></span>
-                            <span>All Offers</span>
+                            <span>All</span>
                         </label>
                         <label class="region-item" id="subSegLabel_1">
                             <input type="radio" name="subseg_filter" value="with_subseg"
                                 onchange="toggleSubSegFilter('subSegLabel_1')">
                             <span class="region-dot"></span>
-                            <span>With Sub-segment</span>
+                            <span>With Sub-seg</span>
                         </label>
                         <label class="region-item" id="subSegLabel_2">
                             <input type="radio" name="subseg_filter" value="no_subseg"
                                 onchange="toggleSubSegFilter('subSegLabel_2')">
                             <span class="region-dot"></span>
-                            <span>No Sub-segment</span>
+                            <span>No Sub-seg</span>
                         </label>
                     </div>
                 </div>
@@ -287,18 +341,16 @@
                             <span>By Rep_code</span>
                         </label>
                     </div>
-                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 8px;">
-                        ℹ️ Affects how revenue is summed when Product/Rep_code columns are displayed
-                    </div>
                 </div>
 
-            </div>
+            </div><!-- /advancedOptions -->
 
+            <div class="error-msg" id="svpError"></div>
             <button type="submit" class="run-btn" id="runBtn">▶ Run Analysis</button>
         </form>
-    </div>
+    </div><!-- /left-panel -->
 
-    <!-- RIGHT PANEL -->
+    <!-- ══════════════════ RIGHT PANEL ══════════════════ -->
     <div class="right-panel">
 
         <!-- CHART -->
@@ -309,22 +361,26 @@
                     <div class="chart-subtitle" id="chartSubtitle">
                         Select parameters and run analysis</div>
                 </div>
-                <div style="display:flex;align-items:center;gap:16px;">
-                    <div class="chart-legend">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <div class="chart-legend" id="chartLegend">
                         <div class="legend-item">
                             <div class="legend-line" style="background:#ffffff;"></div>
                             <span>Actual</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-line" style="background:#4fc3f7;"></div>
-                            <span>Real (post pred-start)</span>
+                            <span>Real (post)</span>
                         </div>
                         <div class="legend-item">
-                            <div class="legend-line" style="background:#f5a623;
-                                 border-top:2px dashed #f5a623;height:0;width:24px;"></div>
-                            <span>Predicted</span>
+                            <div class="legend-line"
+                                 style="background:#f5a623;border-top:2px dashed #f5a623;
+                                        height:0;width:24px;"></div>
+                            <span>Predicted (MIF)</span>
                         </div>
                     </div>
+                    <button class="toggle-chart-btn" onclick="openSessionCagrModal()">
+                        + Session CAGR
+                    </button>
                     <button class="toggle-chart-btn" id="toggleChartBtn"
                             onclick="toggleChart()">▲ Hide Chart</button>
                 </div>
@@ -338,14 +394,43 @@
         <div class="kpi-strip">
             <div class="kpi-card">
                 <div class="kpi-label">
-                    Selected Element CAGR
+                    Selected Offer CAGR MIF
                     <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                     <div class="tooltip-content">
-                        <div style="display: inline;">CAGR of the selected row:</div> <div style="text-align: center;">$$\text{CAGR} = \left(\frac{\text{E}}{\text{S}}\right)^{\frac{1}{\text{I}}} - 1$$</div>
-                        <p>S: 1nd year's revenue specified in the CAGR Year option<br>E: 2nd year's revenue specified in the CAGR Year option<br>I: 2nd year - 1st year</p>
+                        MIF CAGR of the selected offer(s), from the CAGR interval defined in parameters.
                     </div>
                 </div>
                 <div class="kpi-value white" id="kpiSelectedElementCagr">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">
+                    Selected Offer CAGR BL
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">
+                        BL (Custom) CAGR of the selected offer(s).
+                    </div>
+                </div>
+                <div class="kpi-value white" id="kpiSelectedOfferCagrBL">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">
+                    Total Offer MIF
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">
+                        Sum of all Real revenues + Predicted MIF revenues across the full display interval.
+                    </div>
+                </div>
+                <div class="kpi-value white" id="kpiTotalOfferMIF">—</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">
+                    Total Offer BL
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">
+                        Sum of all Real revenues + Predicted BL revenues across the full display interval.
+                    </div>
+                </div>
+                <div class="kpi-value white" id="kpiTotalOfferBL">—</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-label">CAGR of Actual Interval</div>
@@ -355,7 +440,7 @@
                 <div class="kpi-label">
                     Avg CAGR
                     <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">Average CAGRs of all individual offer</div>
+                    <div class="tooltip-content">Average MIF CAGR of all individual offers</div>
                 </div>
                 <div class="kpi-value" id="kpiAvgCagr">—</div>
             </div>
@@ -363,9 +448,7 @@
                 <div class="kpi-label">
                     Total CAGR
                     <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        CAGR of the TOTAL row across the CAGR interval
-                    </div>
+                    <div class="tooltip-content">CAGR of the TOTAL row across the CAGR interval</div>
                 </div>
                 <div class="kpi-value" id="kpiTotalCagr">—</div>
             </div>
@@ -389,10 +472,41 @@
                    <strong>Run Analysis</strong> to see results</p>
             </div>
         </div>
+    </div><!-- /right-panel -->
+</div><!-- /main-layout -->
+
+<!-- ══════════════════ SESSION CAGR MODAL ══════════════════ -->
+<div class="session-modal-overlay" id="sessionCagrModal">
+    <div class="session-modal">
+        <h3>+ Session CAGR</h3>
+
+        <div class="form-section-label" style="margin-bottom:6px;">Name (optional)</div>
+        <input type="text" id="sessionCagrName" 
+               placeholder="e.g. Optimistic scenario"
+               style="width:100%;background:var(--bg-card);border:1px solid var(--border-color);
+                      color:var(--text-primary);padding:10px 12px;border-radius:6px;
+                      font-family:var(--font-main);font-size:0.85rem;margin-bottom:12px;">
+
+        <div class="form-section-label" style="margin-bottom:6px;">Apply to Offers</div>
+        <select id="sessionOfferSelect" multiple>
+            <option value="__all__">— All Offers —</option>
+        </select>
+
+        <div class="form-section-label" style="margin-bottom:6px;">CAGR Value (%)</div>
+        <input type="number" id="sessionCagrValue" step="0.01"
+               placeholder="e.g. 5.5 (means 5.5%)">
+
+        <div class="session-modal-btns">
+            <button class="btn-session-add" onclick="addSessionCagr()">Add</button>
+            <button class="btn-session-cancel" onclick="closeSessionCagrModal()">Cancel</button>
+        </div>
+
+        <div id="sessionCagrList" style="margin-top:14px;"></div>
     </div>
 </div>
 
-<!-- ═══════════════════════════════════════════ STYLES ══ -->
+
+<!-- ══════════════════ STYLES ══════════════════ -->
 <style>
 .label-hint {
     font-size:.6rem; color:var(--text-muted);
@@ -405,7 +519,7 @@
 .search-input {
     flex:1; background-color:var(--bg-card); border:1px solid var(--border-color);
     color:var(--text-primary); padding:10px 14px; border-radius:6px;
-    font-family:'Courier New',monospace; font-size:.85rem; transition:border-color .2s;
+    font-family:var(--font-main); font-size:.85rem; transition:border-color .2s;
 }
 .search-input:focus { outline:none; border-color:var(--accent-orange); }
 .search-input::placeholder { color:var(--text-muted); }
@@ -420,78 +534,60 @@
 .results-table tbody tr.total-row { cursor:default; }
 
 /* column colour coding */
-.results-table td.col-predicted {
-    color:#f5a623; font-style:italic; opacity:.9;
-}
-.results-table td.col-real-post { color:#4fc3f7; }
-.results-table th.col-predicted {
-    color:#f5a623; font-style:italic;
-}
-.results-table th.col-real-post { color:#4fc3f7; }
+.results-table td.col-predicted     { color:#f5a623; font-style:italic; opacity:.9; }
+.results-table td.col-predicted-bl  { color:#c084fc; font-style:italic; opacity:.9; }
+.results-table td.col-real-post     { color:#4fc3f7; }
+.results-table td.col-session       { color:#34d399; font-style:italic; }
+.results-table th.col-predicted     { color:#f5a623; font-style:italic; }
+.results-table th.col-predicted-bl  { color:#c084fc; font-style:italic; }
+.results-table th.col-real-post     { color:#4fc3f7; }
+.results-table th.col-session       { color:#34d399; }
 
 .download-btn {
     background-color:var(--bg-card); border:1px solid var(--border-color);
     color:var(--text-primary); padding:8px 16px; border-radius:6px;
-    font-family:'Courier New',monospace; font-size:.8rem;
+    font-family:var(--font-main); font-size:.8rem;
     cursor:pointer; transition:all .2s; white-space:nowrap;
 }
 .download-btn:hover {
     border-color:var(--accent-orange);
     background-color:rgba(245,166,35,.1); color:var(--accent-orange);
 }
-.download-btn:active { transform:scale(.98); }
-
-.toggle-chart-btn {
-    background-color:var(--bg-card); border:1px solid var(--border-color);
-    color:var(--text-muted); padding:6px 14px; border-radius:6px;
-    font-family:'Courier New',monospace; font-size:.75rem;
-    cursor:pointer; transition:all .2s; white-space:nowrap;
-}
-.toggle-chart-btn:hover { border-color:var(--accent-orange); color:var(--accent-orange); }
-
-.chart-wrapper {
-    height:220px; overflow:hidden;
-    transition:height .4s ease, opacity .4s ease;
-}
-.chart-wrapper.collapsed { height:0 !important; opacity:0; }
-
-.info-icon {
-    display:inline-flex; align-items:center; justify-content:center;
-    width:16px; height:16px; border-radius:50%; background-color:#7a7a9d;
-    color:#fff; font-weight:bold; font-size:12px; cursor:pointer;
-    margin-left:6px; font-family:Arial,sans-serif;
-    transition:background-color .2s; position:relative; flex-shrink:0;
-}
-.info-icon:hover { background-color:var(--accent-orange); }
-
 </style>
 
-<!-- ═══════════════════════════════════════════ SCRIPT ══ -->
+<!-- ══════════════════ SCRIPT ══════════════════ -->
 <script>
 // ── globals ──────────────────────────────────────────────────────────────────
-let currentTableData  = null;
-let currentColumnOrder= null;
-let currentChartData  = null;
-let revenueChart      = null;
-let chartVisible      = true;
-let element_selected_cagr  = '—';
-let element_selected_offer = '—';
+let currentTableData   = null;
+let currentColumnOrder = null;
+let currentChartData   = null;
+let revenueChart       = null;
+let chartVisible       = true;
+
+// Multi-select state
+let selectedRowIndices = new Set();
+
+// Session CAGRs
+let sessionCagrs        = [];
+let sessionCagrCounter  = 0;
+// Palette for session CAGR curves
+const SESSION_PALETTE = ['#34d399','#c084fc','#f87171','#60a5fa','#fbbf24',
+                         '#a78bfa','#fb923c','#4ade80'];
 
 // ── chart toggle ──────────────────────────────────────────────────────────────
 function toggleChart() {
-    const wrapper = document.getElementById('chartWrapper');
+    const wrapper  = document.getElementById('chartWrapper');
     const kpiStrip = document.querySelector('.kpi-strip');
-    const btn = document.getElementById('toggleChartBtn');
-    chartVisible = !chartVisible;
-    
+    const btn      = document.getElementById('toggleChartBtn');
+    chartVisible   = !chartVisible;
     if (chartVisible) {
-        wrapper.style.height = '220px';
+        wrapper.style.height  = '220px';
         wrapper.style.opacity = '1';
         wrapper.classList.remove('collapsed');
         kpiStrip.style.display = 'flex';
         btn.textContent = '▲ Hide Chart';
     } else {
-        wrapper.style.height = '0px';
+        wrapper.style.height  = '0px';
         wrapper.style.opacity = '0';
         wrapper.classList.add('collapsed');
         kpiStrip.style.display = 'none';
@@ -499,9 +595,9 @@ function toggleChart() {
     }
 }
 
-
-function toggleCustomCagr(activeLabelId) {
-    document.querySelectorAll('[id^="customCagrLabel_"]').forEach(el => {
+// ── CAGR mode toggle ──────────────────────────────────────────────────────────
+function toggleCagrMode(activeLabelId) {
+    document.querySelectorAll('[id^="cagrModeLabel_"]').forEach(el => {
         el.classList.remove('active');
         el.querySelector('.region-dot').classList.remove('active');
     });
@@ -525,6 +621,24 @@ function toggleRegion(activeLabelId) {
     al.classList.add('active');
     al.querySelector('.region-dot').classList.add('active');
 }
+function toggleSubSegFilter(labelId) {
+    document.querySelectorAll('[id^="subSegLabel_"]').forEach(lbl => {
+        lbl.classList.remove('active');
+        lbl.querySelector('.region-dot').classList.remove('active');
+    });
+    const label = document.getElementById(labelId);
+    label.classList.add('active');
+    label.querySelector('.region-dot').classList.add('active');
+}
+function toggleAggregation(labelId) {
+    document.querySelectorAll('[id^="aggLabel_"]').forEach(lbl => {
+        lbl.classList.remove('active');
+        lbl.querySelector('.region-dot').classList.remove('active');
+    });
+    const label = document.getElementById(labelId);
+    label.classList.add('active');
+    label.querySelector('.region-dot').classList.add('active');
+}
 
 // ── year filter helpers ───────────────────────────────────────────────────────
 function filterDisplayEndYears() {
@@ -546,41 +660,20 @@ function filterCagrEndYears() {
     if (parseInt(es.value) <= sy) es.value = '';
 }
 
-function toggleSubSegFilter(labelId) {
-    document.querySelectorAll('[id^="subSegLabel_"]').forEach(lbl => {
-        lbl.classList.remove('active');
-        lbl.querySelector('.region-dot').classList.remove('active');
-    });
-    const label = document.getElementById(labelId);
-    label.classList.add('active');
-    label.querySelector('.region-dot').classList.add('active');
-    updateTopBar();
-}
-
-function toggleAggregation(labelId) {
-    document.querySelectorAll('[id^="aggLabel_"]').forEach(lbl => {
-        lbl.classList.remove('active');
-        lbl.querySelector('.region-dot').classList.remove('active');
-    });
-    const label = document.getElementById(labelId);
-    label.classList.add('active');
-    label.querySelector('.region-dot').classList.add('active');
-    updateTopBar();
-}
-
 // ── top bar ───────────────────────────────────────────────────────────────────
 function updateTopBar() {
-    const ds = document.getElementById('display_start_year').value;
-    const de = document.getElementById('display_end_year').value;
-    const cs = document.getElementById('cagr_start_year').value;
-    const ce = document.getElementById('cagr_end_year').value;
-    const ps = document.getElementById('pred_start_year').value;
+    const ds   = document.getElementById('display_start_year').value;
+    const de   = document.getElementById('display_end_year').value;
+    const cs   = document.getElementById('cagr_start_year').value;
+    const ce   = document.getElementById('cagr_end_year').value;
+    const ps   = document.getElementById('pred_start_year').value;
     const svps = Array.from(document.querySelectorAll('input[name="svp"]:checked'))
                       .map(cb => cb.value.split(' - ')[1] || cb.value);
-
+    const cvps = Array.from(document.querySelectorAll('input[name="cvp"]:checked'))
+                      .map(cb => cb.value);
+    const all  = [...svps, ...cvps];
     document.getElementById('topBarSvp').textContent =
-        svps.length ? svps.join(', ') : 'Select SVP & Years';
-
+        all.length ? all.join(', ') : 'Select SVP/CVP & Years';
     if (ds && de && cs && ce && ps) {
         document.getElementById('topBarArrow').style.display = 'inline';
         document.getElementById('topBarYears').style.display = 'inline';
@@ -592,74 +685,83 @@ function updateTopBar() {
     }
 }
 
+// ── advanced options ──────────────────────────────────────────────────────────
+function toggleAdvancedOptions() {
+    const adv = document.getElementById('advancedOptions');
+    const btn = document.getElementById('advancedToggleBtn');
+    const vis = adv.style.display !== 'none';
+    adv.style.display = vis ? 'none' : 'block';
+    btn.classList.toggle('active', !vis);
+    localStorage.setItem('advancedOptionsVisible', !vis);
+}
+
 // ── renderChart ───────────────────────────────────────────────────────────────
-// Three datasets:
-//   0 – Actual (white solid)        : real revenue before pred_start_year
-//   1 – Real post (blue solid)      : real revenue >= pred_start_year (overlap)
-//   2 – Predicted (orange dashed)   : CAGR projection >= pred_start_year
-function renderChart(labels, actual, realPost, predicted, title) {
+// datasets[0] = Actual (white)
+// datasets[1] = Real post (blue)
+// datasets[2] = Predicted MIF (orange dashed)
+// datasets[3] = Predicted BL  (purple dashed) — only for 'both' mode
+// datasets[4+] = Session CAGRs
+function renderChart(labels, actual, realPost, predictedMIF, title, predictedBL) {
     const ctx = document.getElementById('revenueChart').getContext('2d');
     if (revenueChart) revenueChart.destroy();
 
+    const datasets = [
+        {
+            label: 'Actual',
+            data: actual,
+            borderColor: '#ffffff',
+            backgroundColor: 'rgba(255,255,255,0.04)',
+            borderWidth: 2,
+            pointBackgroundColor: '#ffffff',
+            pointRadius: 4, pointHoverRadius: 6,
+            tension: 0.3, fill: false, spanGaps: false,
+        },
+        {
+            label: 'Real (post pred-start)',
+            data: realPost,
+            borderColor: '#4fc3f7',
+            backgroundColor: 'rgba(79,195,247,0.06)',
+            borderWidth: 2,
+            pointBackgroundColor: '#4fc3f7',
+            pointRadius: 4, pointHoverRadius: 6,
+            tension: 0.3, fill: false, spanGaps: false,
+        },
+        {
+            label: 'Predicted (MIF)',
+            data: predictedMIF,
+            borderColor: '#f5a623',
+            backgroundColor: 'rgba(245,166,35,0.08)',
+            borderWidth: 2, borderDash: [6,4],
+            pointBackgroundColor: '#f5a623',
+            pointRadius: 4, pointHoverRadius: 6,
+            tension: 0.3, fill: true, spanGaps: false,
+        },
+    ];
+
+    if (predictedBL && predictedBL.some(v => v !== null && v !== '---')) {
+        datasets.push({
+            label: 'Predicted (BL)',
+            data: predictedBL,
+            borderColor: '#c084fc',
+            backgroundColor: 'rgba(192,132,252,0.06)',
+            borderWidth: 2, borderDash: [4,4],
+            pointBackgroundColor: '#c084fc',
+            pointRadius: 4, pointHoverRadius: 6,
+            tension: 0.3, fill: false, spanGaps: false,
+        });
+    }
+
     revenueChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: 'Actual',
-                    data: actual,
-                    borderColor: '#ffffff',
-                    backgroundColor: 'rgba(255,255,255,0.04)',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#ffffff',
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    tension: 0.3,
-                    fill: false,
-                    spanGaps: false,
-                },
-                {
-                    label: 'Real (post pred-start)',
-                    data: realPost,
-                    borderColor: '#4fc3f7',
-                    backgroundColor: 'rgba(79,195,247,0.06)',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#4fc3f7',
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    tension: 0.3,
-                    fill: false,
-                    spanGaps: false,
-                },
-                {
-                    label: 'Predicted',
-                    data: predicted,
-                    borderColor: '#f5a623',
-                    backgroundColor: 'rgba(245,166,35,0.08)',
-                    borderWidth: 2,
-                    borderDash: [6, 4],
-                    pointBackgroundColor: '#f5a623',
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    tension: 0.3,
-                    fill: true,
-                    spanGaps: false,
-                },
-            ]
-        },
+        data: { labels, datasets },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: '#1a1825',
-                    borderColor: '#2e2b3e',
-                    borderWidth: 1,
-                    titleColor: '#7a7a9d',
-                    bodyColor: '#ffffff',
+                    backgroundColor: '#1a1825', borderColor: '#2e2b3e', borderWidth: 1,
+                    titleColor: '#7a7a9d', bodyColor: '#ffffff',
                     callbacks: {
                         label(ctx) {
                             const v = ctx.parsed.y;
@@ -673,12 +775,13 @@ function renderChart(labels, actual, realPost, predicted, title) {
             scales: {
                 x: {
                     grid: { color: 'rgba(46,43,62,0.5)' },
-                    ticks: { color: '#7a7a9d', font: { size: 11 } }
+                    ticks: { color: '#7a7a9d', font: { size: 11, family: 'Helvetica Neue, Arial, sans-serif' } }
                 },
                 y: {
                     grid: { color: 'rgba(46,43,62,0.5)' },
                     ticks: {
-                        color: '#7a7a9d', font: { size: 11 },
+                        color: '#7a7a9d',
+                        font: { size: 11, family: 'Helvetica Neue, Arial, sans-serif' },
                         callback(v) {
                             if (v == null) return '';
                             if (Math.abs(v) >= 1e6) return (v/1e6).toFixed(1)+'M';
@@ -707,26 +810,50 @@ function renderTable(tableData, columnOrder) {
     document.getElementById('searchBarContainer').style.display = 'flex';
     document.getElementById('tableSearch').value = '';
 
+    // Build full column list including session CAGR columns
+    const fullColumns = [...columnOrder];
+    if (sessionCagrs.length && currentChartData) {
+        const labels    = currentChartData.chart_labels;
+        const predStart = String(currentChartData.pred_start_year);
+        const psIdx     = labels.indexOf(predStart);
+        sessionCagrs.forEach(sc => {
+            labels.forEach((y, li) => {
+                if (li < psIdx) return;
+                const col = `Predicted_Session_${sc.id}_${y}`;
+                if (!fullColumns.includes(col)) fullColumns.push(col);
+            });
+        });
+    }
+
     let html = `<table class="results-table"><thead><tr>`;
-    columnOrder.forEach(h => {
+    fullColumns.forEach(h => {
         let cls = '';
-        if (h.startsWith('Predicted_')) cls = 'col-predicted';
-        else if (h.startsWith('Real_'))  cls = 'col-real-post';
+        if (h.startsWith('Predicted_BL_'))      cls = 'col-predicted-bl';
+        else if (h.startsWith('Predicted_MIF_') ||
+                 (h.startsWith('Predicted_') && !h.startsWith('Predicted_Session_')))
+                                                  cls = 'col-predicted';
+        else if (h.startsWith('Predicted_Session_')) cls = 'col-session';
+        else if (h.startsWith('Real_'))           cls = 'col-real-post';
         html += `<th class="${cls}">${h}</th>`;
     });
     html += `</tr></thead><tbody>`;
 
     tableData.forEach((row, idx) => {
         const isTotal = row['Offer'] === 'TOTAL';
-        html += `<tr class="${isTotal ? 'total-row' : ''}"
+        const isSel   = selectedRowIndices.has(idx);
+        html += `<tr class="${isTotal ? 'total-row' : ''} ${isSel ? 'selected' : ''}"
                      data-index="${idx}"
                      onclick="selectTableRow(this,${idx})">`;
-        columnOrder.forEach(h => {
+        fullColumns.forEach(h => {
             const val = row[h];
             let cls = '';
-            if (h.startsWith('Predicted_'))  cls = 'col-predicted';
-            else if (h.startsWith('Real_'))   cls = 'col-real-post';
-            else if (h.startsWith('Revenue_')|| h.startsWith('CAGR')) cls = 'orange';
+            if (h.startsWith('Predicted_BL_'))       cls = 'col-predicted-bl';
+            else if (h.startsWith('Predicted_MIF_') ||
+                     (h.startsWith('Predicted_') && !h.startsWith('Predicted_Session_')))
+                                                       cls = 'col-predicted';
+            else if (h.startsWith('Predicted_Session_')) cls = 'col-session';
+            else if (h.startsWith('Real_'))            cls = 'col-real-post';
+            else if (h.startsWith('Revenue_') || h.includes('CAGR')) cls = 'orange';
             else if (['Market_Category','Sub-segment 2','SVP'].includes(h)) cls = 'muted';
             if (isTotal) cls = '';
             html += `<td class="${cls}">${val ?? '—'}</td>`;
@@ -738,92 +865,130 @@ function renderTable(tableData, columnOrder) {
     updateSearchCount();
 }
 
-function toggleAdvancedOptions() {
-    const advOptions = document.getElementById('advancedOptions');
-    const toggleBtn = document.getElementById('advancedToggleBtn');
-    
-    const isVisible = advOptions.style.display !== 'none';
-    advOptions.style.display = isVisible ? 'none' : 'block';
-    toggleBtn.classList.toggle('active', !isVisible);
-    
-    // Save preference to localStorage
-    localStorage.setItem('advancedOptionsVisible', !isVisible);
-}
-
-// Restore advanced options visibility on page load
-window.addEventListener('DOMContentLoaded', () => {
-    const savedState = localStorage.getItem('advancedOptionsVisible');
-    if (savedState === 'true') {
-        document.getElementById('advancedOptions').style.display = 'block';
-        document.getElementById('advancedToggleBtn').classList.add('active');
-    }
-    updateTopBar();
-    filterDisplayEndYears();
-    filterCagrEndYears();
-});
-
-
-// ── selectTableRow ────────────────────────────────────────────────────────────
+// ── selectTableRow (multi-select) ─────────────────────────────────────────────
 function selectTableRow(el, idx) {
     if (el.classList.contains('total-row')) return;
-    document.querySelectorAll('.results-table tbody tr')
-            .forEach(r => r.classList.remove('selected'));
-    el.classList.add('selected');
 
-    const row     = currentTableData[idx];
-    const cagrCol = currentColumnOrder.find(c => c.startsWith('CAGR_'));
-    element_selected_cagr  = cagrCol ? row[cagrCol] : '—';
-    element_selected_offer = row['Offer'];
-    document.getElementById('kpiSelectedElementCagr').textContent  = element_selected_cagr;
+    if (selectedRowIndices.has(idx)) {
+        selectedRowIndices.delete(idx);
+        el.classList.remove('selected');
+    } else {
+        selectedRowIndices.add(idx);
+        el.classList.add('selected');
+    }
+
+    if (selectedRowIndices.size === 0) {
+        document.getElementById('kpiSelectedElementCagr').textContent  = '—';
+        document.getElementById('kpiSelectedOfferCagrBL').textContent  = '—';
+        if (currentChartData) {
+            renderChart(
+                currentChartData.chart_labels,
+                currentChartData.chart_actual,
+                currentChartData.chart_real_post,
+                currentChartData.chart_predicted,
+                'Total Revenue by Year',
+                currentChartData.chart_predicted_bl
+            );
+            // Pass null = total view (all offers)
+            _appendSessionDatasetsToChart(null);
+            computeTotalOfferKPIs(null);
+        }
+        return;
+    }
 
     if (!currentChartData) return;
 
     const labels    = currentChartData.chart_labels;
     const predStart = String(currentChartData.pred_start_year);
     const psIdx     = labels.indexOf(predStart);
+    const mode      = currentChartData.use_custom_cagr || 'no';
 
-    // Build three series for this offer
-    const actual    = labels.map((y, i) => {
-        if (i > psIdx) return null;  // actual ends at pred_start_year
-        const col = `Revenue_${y}`;
-        if (!currentColumnOrder.includes(col)) return null;
-        const v = row[col];
-        return (v && v !== '—') ? parseFloat(v.replace(/,/g,'')) : null;
-    });
+    const mifCagrValues = [];
+    const blCagrValues  = [];
+    const sumActual     = labels.map(() => null);
+    const sumRealPost   = labels.map(() => null);
+    const sumPredMIF    = labels.map(() => null);
+    const sumPredBL     = labels.map(() => null);
 
-    const realPost  = labels.map((y, i) => {
-        if (i < psIdx) return null;  // real_post starts at pred_start_year
-        const col = `Real_${y}`;
-        if (!currentColumnOrder.includes(col)) return null;
-        const v = row[col];
-        return (v && v !== '—') ? parseFloat(v.replace(/,/g,'')) : null;
-    });
-
-    const predicted = labels.map((y, i) => {
-        if (i < psIdx) return null;  // predicted starts at pred_start_year
-        const col = `Predicted_${y}`;
-        if (!currentColumnOrder.includes(col)) return null;
-        const v = row[col];
-        return (v && v !== '—') ? parseFloat(v.replace(/,/g,'')) : null;
-    });
-
-    // At pred_start_year, all three should converge to the same value
-    if (psIdx >= 0) {
-        const seedCol = `Real_${predStart}`;
-        if (currentColumnOrder.includes(seedCol)) {
-            const seedVal = row[seedCol];
-            if (seedVal && seedVal !== '—') {
-                const seed = parseFloat(seedVal.replace(/,/g,''));
-                actual[psIdx]    = seed;
-                realPost[psIdx]  = seed;
-                predicted[psIdx] = seed;
-            }
+    const addVal = (arr, li, v) => {
+        if (v !== null && v !== undefined && v !== '---') {
+            arr[li] = (arr[li] ?? 0) + v;
         }
-    }
+    };
 
-    renderChart(labels, actual, realPost, predicted,
-                `Revenue: ${element_selected_offer}`);
+    selectedRowIndices.forEach(i => {
+        const row = currentTableData[i];
+
+        // MIF CAGR
+        const mifCol = currentColumnOrder.find(c => c.startsWith('MIF_CAGR_'));
+        if (mifCol && row[mifCol] && row[mifCol] !== '—') {
+            const pct = parseFloat(row[mifCol].replace('%', ''));
+            if (!isNaN(pct)) mifCagrValues.push(pct);
+        }
+
+        // BL CAGR
+        const blCol = currentColumnOrder.find(c => c.startsWith('BL_CAGR'));
+        if (blCol && row[blCol] && row[blCol] !== '—') {
+            const pct = parseFloat(row[blCol].replace('%', ''));
+            if (!isNaN(pct)) blCagrValues.push(pct);
+        }
+
+        labels.forEach((y, li) => {
+            const parseCell = col => {
+                const v = row[col];
+                if (!v || v === '—' || v === '---') return null;
+                return parseFloat(String(v).replace(/,/g, ''));
+            };
+
+            if (li < psIdx) {
+                addVal(sumActual, li, parseCell(`Revenue_${y}`));
+            } else if (li === psIdx) {
+                const seed = parseCell(`Real_${y}`) ?? parseCell(`Revenue_${y}`);
+                addVal(sumActual,   li, seed);
+                addVal(sumRealPost, li, seed);
+                if (mode === 'both') {
+                    addVal(sumPredMIF, li, parseCell(`Predicted_MIF_${y}`));
+                    addVal(sumPredBL,  li, parseCell(`Predicted_BL_${y}`));
+                } else {
+                    addVal(sumPredMIF, li, parseCell(`Predicted_${y}`));
+                }
+            } else {
+                addVal(sumRealPost, li, parseCell(`Real_${y}`));
+                if (mode === 'both') {
+                    addVal(sumPredMIF, li, parseCell(`Predicted_MIF_${y}`));
+                    addVal(sumPredBL,  li, parseCell(`Predicted_BL_${y}`));
+                } else {
+                    addVal(sumPredMIF, li, parseCell(`Predicted_${y}`));
+                }
+            }
+        });
+    });
+
+    // MIF CAGR KPI — average of selected offers' MIF CAGRs
+    const avgMifCagr = mifCagrValues.length
+        ? (mifCagrValues.reduce((a, b) => a + b, 0) / mifCagrValues.length).toFixed(2) + '%'
+        : '—';
+    document.getElementById('kpiSelectedElementCagr').textContent = avgMifCagr;
+
+    // BL CAGR KPI
+    const avgBlCagr = blCagrValues.length
+        ? (blCagrValues.reduce((a, b) => a + b, 0) / blCagrValues.length).toFixed(2) + '%'
+        : (mode === 'no' ? 'N/A (MIF mode)' : '—');
+    document.getElementById('kpiSelectedOfferCagrBL').textContent = avgBlCagr;
+
+    const offerNames = [...selectedRowIndices]
+        .map(i => currentTableData[i]['Offer']).join(', ');
+    const titleStr = offerNames.length > 70
+        ? offerNames.slice(0, 70) + '…' : offerNames;
+
+    renderChart(labels, sumActual, sumRealPost, sumPredMIF,
+        `Revenue: ${titleStr}`,
+        mode === 'both' ? sumPredBL : null);
+
+    _appendSessionDatasetsToChart([...selectedRowIndices]);
+    computeTotalOfferKPIs([...selectedRowIndices]);
 }
+
 
 // ── filterTable ───────────────────────────────────────────────────────────────
 function filterTable() {
@@ -857,12 +1022,10 @@ function toggleTooltip(event) {
     if (tip.classList.contains('tooltip-active')) positionTooltip(event.target, tip);
 }
 function positionTooltip(icon, tip) {
-    tip.style.visibility = 'hidden';
-    tip.style.display    = 'block';
+    tip.style.visibility = 'hidden'; tip.style.display = 'block';
     const ir = icon.getBoundingClientRect();
     const tr = tip.getBoundingClientRect();
-    tip.style.visibility = '';
-    tip.style.display    = '';
+    tip.style.visibility = ''; tip.style.display = '';
     tip.style.top  = (ir.top  - tr.height - 12) + 'px';
     tip.style.left = (ir.left + ir.width/2 - tr.width/2) + 'px';
 }
@@ -872,22 +1035,333 @@ document.addEventListener('click', e => {
                 .forEach(t => t.classList.remove('tooltip-active'));
 });
 
+// ── SESSION CAGR ──────────────────────────────────────────────────────────────
+function openSessionCagrModal() {
+    if (!currentTableData) { alert('Run analysis first.'); return; }
+    const sel = document.getElementById('sessionOfferSelect');
+    sel.innerHTML = '<option value="__all__">— All Offers —</option>';
+    currentTableData.forEach(row => {
+        if (row['Offer'] === 'TOTAL') return;
+        const opt = document.createElement('option');
+        opt.value = row['Offer']; opt.textContent = row['Offer'];
+        sel.appendChild(opt);
+    });
+    refreshSessionCagrList();
+    document.getElementById('sessionCagrModal').classList.add('active');
+}
+function closeSessionCagrModal() {
+    document.getElementById('sessionCagrModal').classList.remove('active');
+}
+
+function addSessionCagr() {
+    const sel      = document.getElementById('sessionOfferSelect');
+    const cagrV    = parseFloat(document.getElementById('sessionCagrValue').value);
+    const nameRaw  = document.getElementById('sessionCagrName').value.trim();
+
+    if (isNaN(cagrV)) { alert('Enter a valid CAGR value (e.g. 5.5 for 5.5%).'); return; }
+    const selected = Array.from(sel.selectedOptions).map(o => o.value);
+    if (!selected.length) { alert('Select at least one offer.'); return; }
+
+    sessionCagrCounter++;
+    const autoLabel = `Session_CAGR_${sessionCagrCounter}`;
+    const label     = nameRaw || autoLabel;
+
+    sessionCagrs.push({
+        id:     sessionCagrCounter,
+        offers: selected.includes('__all__') ? '__all__' : selected,
+        cagr:   cagrV / 100,
+        label:  label,
+    });
+    document.getElementById('sessionCagrValue').value = '';
+    document.getElementById('sessionCagrName').value  = '';
+    refreshSessionCagrList();
+    applySessionCagrs();
+}
+
+
+function removeSessionCagr(id) {
+    sessionCagrs = sessionCagrs.filter(s => s.id !== id);
+    refreshSessionCagrList();
+    applySessionCagrs();
+}
+
+function refreshSessionCagrList() {
+    const el = document.getElementById('sessionCagrList');
+    if (!sessionCagrs.length) { el.innerHTML = ''; return; }
+    el.innerHTML = sessionCagrs.map(s => `
+        <div class="session-cagr-item">
+            <span>${s.label} — ${(s.cagr*100).toFixed(2)}% — 
+                  ${s.offers === '__all__' ? 'All Offers'
+                    : s.offers.length + ' offer(s)'}</span>
+            <button onclick="removeSessionCagr(${s.id})">✕</button>
+        </div>`).join('');
+}
+function applySessionCagrs() {
+    if (!currentChartData || !currentTableData) return;
+    _enrichTableWithSessionCagrs();
+
+    if (selectedRowIndices.size > 0) {
+        _rebuildChartForSelection();
+    } else {
+        renderChart(
+            currentChartData.chart_labels,
+            currentChartData.chart_actual,
+            currentChartData.chart_real_post,
+            currentChartData.chart_predicted,
+            document.getElementById('chartTitle').textContent,
+            currentChartData.chart_predicted_bl
+        );
+        _appendSessionDatasetsToChart(null);
+        computeTotalOfferKPIs(null);
+    }
+    renderTable(currentTableData, currentColumnOrder);
+}
+
+function _rebuildChartForSelection() {
+    if (!currentChartData || selectedRowIndices.size === 0) return;
+    const labels    = currentChartData.chart_labels;
+    const predStart = String(currentChartData.pred_start_year);
+    const psIdx     = labels.indexOf(predStart);
+    const mode      = currentChartData.use_custom_cagr || 'no';
+
+    const sumActual   = labels.map(() => null);
+    const sumRealPost = labels.map(() => null);
+    const sumPredMIF  = labels.map(() => null);
+    const sumPredBL   = labels.map(() => null);
+
+    const addVal = (arr, li, v) => {
+        if (v !== null && v !== undefined && v !== '---') arr[li] = (arr[li] ?? 0) + v;
+    };
+    const parseCell = (row, col) => {
+        const v = row[col];
+        if (!v || v === '—' || v === '---') return null;
+        return parseFloat(String(v).replace(/,/g, ''));
+    };
+
+    selectedRowIndices.forEach(i => {
+        const row = currentTableData[i];
+        labels.forEach((y, li) => {
+            if (li < psIdx) {
+                addVal(sumActual, li, parseCell(row, `Revenue_${y}`));
+            } else if (li === psIdx) {
+                const seed = parseCell(row, `Real_${y}`) ?? parseCell(row, `Revenue_${y}`);
+                addVal(sumActual, li, seed); addVal(sumRealPost, li, seed);
+                if (mode === 'both') {
+                    addVal(sumPredMIF, li, parseCell(row, `Predicted_MIF_${y}`));
+                    addVal(sumPredBL,  li, parseCell(row, `Predicted_BL_${y}`));
+                } else {
+                    addVal(sumPredMIF, li, parseCell(row, `Predicted_${y}`));
+                }
+            } else {
+                addVal(sumRealPost, li, parseCell(row, `Real_${y}`));
+                if (mode === 'both') {
+                    addVal(sumPredMIF, li, parseCell(row, `Predicted_MIF_${y}`));
+                    addVal(sumPredBL,  li, parseCell(row, `Predicted_BL_${y}`));
+                } else {
+                    addVal(sumPredMIF, li, parseCell(row, `Predicted_${y}`));
+                }
+            }
+        });
+    });
+
+    const offerNames = [...selectedRowIndices].map(i => currentTableData[i]['Offer']).join(', ');
+    renderChart(labels, sumActual, sumRealPost, sumPredMIF,
+        `Revenue: ${offerNames.length > 70 ? offerNames.slice(0, 70) + '…' : offerNames}`,
+        mode === 'both' ? sumPredBL : null);
+
+    // ✅ Always pass explicit indices — never rely on renderChart's internal call
+    _appendSessionDatasetsToChart([...selectedRowIndices]);
+    computeTotalOfferKPIs([...selectedRowIndices]);
+}
+
+function _enrichTableWithSessionCagrs() {
+    if (!currentChartData || !currentTableData) return;
+    const labels    = currentChartData.chart_labels;
+    const predStart = String(currentChartData.pred_start_year);
+    const psIdx     = labels.indexOf(predStart);
+
+    currentTableData.forEach(row => {
+        if (row['Offer'] === 'TOTAL') return;
+        sessionCagrs.forEach(sc => {
+            const applies = sc.offers === '__all__' || sc.offers.includes(row['Offer']);
+            const seedCol = `Real_${predStart}`;
+            const revCol  = `Revenue_${predStart}`;
+            const seedStr = row[seedCol] ?? row[revCol];
+            const seed    = seedStr && seedStr !== '—'
+                ? parseFloat(String(seedStr).replace(/,/g,'')) : 0;
+
+            labels.forEach((y, li) => {
+                if (li < psIdx) return;
+                const col = `Predicted_Session_${sc.id}_${y}`;
+                if (applies) {
+                    const steps = li - psIdx;
+                    const v = seed * Math.pow(1 + sc.cagr, steps);
+                    row[col] = v.toLocaleString('en-US',
+                        {minimumFractionDigits:2, maximumFractionDigits:2});
+                } else {
+                    row[col] = '—';
+                }
+            });
+        });
+    });
+}
+
+// ── compute Total Offer MIF / BL KPIs ────────────────────────────────────────
+function computeTotalOfferKPIs(rowIndices) {
+    if (!currentChartData || !currentTableData) return;
+
+    const labels    = currentChartData.chart_labels;
+    const predStart = String(currentChartData.pred_start_year);
+    const psIdx     = labels.indexOf(predStart);
+    const mode      = currentChartData.use_custom_cagr || 'no';
+
+    // Determine which rows to sum
+    const rows = (rowIndices && rowIndices.length > 0)
+        ? rowIndices.map(i => currentTableData[i]).filter(r => r['Offer'] !== 'TOTAL')
+        : currentTableData.filter(r => r['Offer'] !== 'TOTAL');
+
+    let totalMIF = 0;
+    let totalBL  = 0;
+
+    const parseCell = (row, col) => {
+        const v = row[col];
+        if (!v || v === '—' || v === '---') return 0;
+        return parseFloat(String(v).replace(/,/g, '')) || 0;
+    };
+
+    rows.forEach(row => {
+        labels.forEach((y, li) => {
+            if (li < psIdx) {
+                // Actual revenue (before pred start)
+                const rev = parseCell(row, `Revenue_${y}`);
+                totalMIF += rev;
+                totalBL  += rev;
+            } else if (li === psIdx) {
+                // Seed year — use Real if available, else Revenue
+                const seed = parseCell(row, `Real_${y}`) || parseCell(row, `Revenue_${y}`);
+                totalMIF += seed;
+                totalBL  += seed;
+            } else {
+                // Prediction years
+                if (mode === 'both') {
+                    totalMIF += parseCell(row, `Predicted_MIF_${y}`);
+                    totalBL  += parseCell(row, `Predicted_BL_${y}`);
+                } else if (mode === 'yes') {
+                    // BL only mode — predicted col is BL
+                    const pred = parseCell(row, `Predicted_${y}`);
+                    totalMIF += pred; // no separate MIF in this mode
+                    totalBL  += pred;
+                } else {
+                    // MIF only mode
+                    const pred = parseCell(row, `Predicted_${y}`);
+                    totalMIF += pred;
+                    totalBL  += pred;
+                }
+                // Also add any real post-pred-start values
+                const real = parseCell(row, `Real_${y}`);
+                if (real > 0) {
+                    // Real overrides prediction for that year in the sum
+                    // (already counted above via Predicted cols which use real as seed)
+                }
+            }
+        });
+    });
+
+    const fmt = v => v >= 1e6
+        ? (v / 1e6).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' M'
+        : v >= 1e3
+        ? (v / 1e3).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' k'
+        : v.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    document.getElementById('kpiTotalOfferMIF').textContent = fmt(totalMIF);
+    document.getElementById('kpiTotalOfferBL').textContent  = fmt(totalBL);
+}
+
+// activeIndices: null/undefined = use ALL offers (total view)
+//                Array of indices = scope to those rows only
+function _appendSessionDatasetsToChart(activeIndices) {
+    if (!revenueChart || !currentChartData || !currentTableData) return;
+
+    const labels    = currentChartData.chart_labels;
+    const predStart = String(currentChartData.pred_start_year);
+    const psIdx     = labels.indexOf(predStart);
+
+    // Remove previously added session datasets
+    revenueChart.data.datasets = revenueChart.data.datasets.filter(
+        d => !d.label.startsWith('Predicted (Session') &&
+             !d.label.startsWith('Predicted (')
+             || d.label === 'Actual'
+             || d.label === 'Real (post pred-start)'
+             || d.label === 'Predicted (MIF)'
+             || d.label === 'Predicted (BL)'
+    );
+    // Safer: keep only the base datasets (no session label)
+    revenueChart.data.datasets = revenueChart.data.datasets.filter(d =>
+        ['Actual','Real (post pred-start)','Predicted (MIF)','Predicted (BL)']
+        .includes(d.label)
+    );
+
+    // Determine which rows to include
+    const rowsToUse = (activeIndices && activeIndices.length > 0)
+        ? activeIndices.map(i => currentTableData[i]).filter(r => r['Offer'] !== 'TOTAL')
+        : currentTableData.filter(r => r['Offer'] !== 'TOTAL');
+
+    sessionCagrs.forEach((sc, si) => {
+        const sumPred = labels.map(() => null);
+
+        rowsToUse.forEach(row => {
+            // ✅ FIX: check if this session CAGR applies to this specific offer
+            const applies = sc.offers === '__all__' || sc.offers.includes(row['Offer']);
+            if (!applies) return;
+
+            const seedStr = row[`Real_${predStart}`] ?? row[`Revenue_${predStart}`];
+            const seed    = seedStr && seedStr !== '—' && seedStr !== '---'
+                ? parseFloat(String(seedStr).replace(/,/g,'')) : 0;
+
+            labels.forEach((y, li) => {
+                if (li < psIdx) return;
+                const steps = li - psIdx;
+                const v     = seed * Math.pow(1 + sc.cagr, steps);
+                sumPred[li] = (sumPred[li] ?? 0) + v;
+            });
+        });
+
+        // Only add the dataset if it has at least one non-null value
+        if (sumPred.some(v => v !== null && v > 0)) {
+            revenueChart.data.datasets.push({
+                label: `Predicted (${sc.label})`,
+                data:  sumPred,
+                borderColor: SESSION_PALETTE[si % SESSION_PALETTE.length],
+                backgroundColor: 'transparent',
+                borderWidth: 2, borderDash: [3,3],
+                pointBackgroundColor: SESSION_PALETTE[si % SESSION_PALETTE.length],
+                pointRadius: 3, pointHoverRadius: 5,
+                tension: 0.3, fill: false, spanGaps: false,
+            });
+        }
+    });
+
+    revenueChart.update();
+}
+
+
 // ── form submit ───────────────────────────────────────────────────────────────
 document.getElementById('analysisForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     ['svpError','displayYearError','cagrYearError','predStartError']
         .forEach(id => document.getElementById(id).textContent = '');
 
-    const svps       = document.querySelectorAll('input[name="svp"]:checked');
-    const dispStart  = document.getElementById('display_start_year').value;
-    const dispEnd    = document.getElementById('display_end_year').value;
-    const cagrStart  = document.getElementById('cagr_start_year').value;
-    const cagrEnd    = document.getElementById('cagr_end_year').value;
-    const predStart  = document.getElementById('pred_start_year').value;
+    const svps      = document.querySelectorAll('input[name="svp"]:checked');
+    const cvps      = document.querySelectorAll('input[name="cvp"]:checked');
+    const dispStart = document.getElementById('display_start_year').value;
+    const dispEnd   = document.getElementById('display_end_year').value;
+    const cagrStart = document.getElementById('cagr_start_year').value;
+    const cagrEnd   = document.getElementById('cagr_end_year').value;
+    const predStart = document.getElementById('pred_start_year').value;
 
-    if (!svps.length) {
+    if (!svps.length && !cvps.length) {
         document.getElementById('svpError').textContent =
-            'Please select at least one SVP category'; return;
+            'Please select at least one SVP or CVP category'; return;
     }
     if (!dispStart || !dispEnd) {
         document.getElementById('displayYearError').textContent =
@@ -910,62 +1384,47 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             'Please select a prediction start year'; return;
     }
 
-    // ✅ Collect selected columns with proper mapping
+    // Collect selected columns
     const selectedColumns = [];
     document.querySelectorAll('.column-checkbox input:checked').forEach(cb => {
-        const value = cb.value;
-        if (value === 'CAGR') {
-            selectedColumns.push('CAGR');
-        } else if (value === 'MIF_CAGR') {
-            selectedColumns.push('MIF_CAGR');
-        } else {
-            selectedColumns.push(value);
-        }
+        selectedColumns.push(cb.value);
     });
-
 
     document.getElementById('loadingOverlay').classList.add('active');
     document.getElementById('runBtn').disabled = true;
 
     try {
-        const useCustomCagr = document.querySelector('input[name="use_custom_cagr"]:checked').value;
-    
         const formData = new FormData(this);
-        formData.append('use_custom_cagr', useCustomCagr);
-        formData.append('selected_columns', JSON.stringify(selectedColumns));
-        
-        const resp = await fetch('/results_data',
-            { method:'POST', body: formData });
+        formData.set('selected_columns', JSON.stringify(selectedColumns));
+
+        const resp = await fetch('/results_data', { method:'POST', body: formData });
         const data = await resp.json();
 
         if (data.error) {
-            document.getElementById('displayYearError').textContent = data.error;
-            return;
+            document.getElementById('displayYearError').textContent = data.error; return;
         }
 
         currentChartData = data;
-        element_selected_cagr  = '—';
-        element_selected_offer = '—';
+        selectedRowIndices = new Set();
+        sessionCagrs       = [];
+        sessionCagrCounter = 0;
 
         updateTopBar();
-        document.getElementById('kpiSelectedElementCagr').textContent  = '—';
-        document.getElementById('kpiCagrActualInterval').textContent = data.actual_cagr;
-        document.getElementById('kpiAvgCagr').textContent   = data.avg_cagr;
-        
+        document.getElementById('kpiSelectedElementCagr').textContent = '—';
+        document.getElementById('kpiCagrActualInterval').textContent  = data.actual_cagr;
+        document.getElementById('kpiAvgCagr').textContent             = data.avg_cagr;
+        document.getElementById('kpiSelectedOfferCagrBL').textContent = '—';
+
+
+        // Total CAGR
         let totalCagr = '—';
         if (data.tot_predicted && data.cagr_start_year && data.cagr_end_year) {
-            const startYear = parseInt(data.cagr_start_year);
-            const endYear = parseInt(data.cagr_end_year);
-            
-            const startVal = data.tot_predicted[startYear];
-            const endVal = data.tot_predicted[endYear];
-            
-            if (startVal !== undefined && endVal !== undefined && startVal > 0 && endYear > startYear) {
-                const cagr = Math.pow(endVal / startVal, 1 / (endYear - startYear)) - 1;
-                totalCagr = (cagr * 100).toFixed(2) + '%';
-            } else if (startVal === undefined || endVal === undefined) {
-                console.warn(`Missing market size data for years ${startYear}-${endYear}`);
-                totalCagr = 'N/A';
+            const sy = parseInt(data.cagr_start_year);
+            const ey = parseInt(data.cagr_end_year);
+            const sv = data.tot_predicted[sy];
+            const ev = data.tot_predicted[ey];
+            if (sv !== undefined && ev !== undefined && sv > 0 && ey > sy) {
+                totalCagr = ((Math.pow(ev/sv, 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
             }
         }
         document.getElementById('kpiTotalCagr').textContent = totalCagr;
@@ -974,14 +1433,53 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             `CAGR: ${data.cagr_start_year}→${data.cagr_end_year} · ` +
             `Pred from: ${data.pred_start_year} · ${data.result_count} offers`;
 
+        // Update legend for 'both' mode
+        const legendEl = document.getElementById('chartLegend');
+        if (data.use_custom_cagr === 'both') {
+            legendEl.innerHTML = `
+                <div class="legend-item">
+                    <div class="legend-line" style="background:#ffffff;"></div><span>Actual</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line" style="background:#4fc3f7;"></div><span>Real (post)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line" style="background:#f5a623;border-top:2px dashed #f5a623;height:0;width:24px;"></div>
+                    <span>Predicted (MIF)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line" style="background:#c084fc;border-top:2px dashed #c084fc;height:0;width:24px;"></div>
+                    <span>Predicted (BL)</span>
+                </div>`;
+        } else {
+            legendEl.innerHTML = `
+                <div class="legend-item">
+                    <div class="legend-line" style="background:#ffffff;"></div><span>Actual</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line" style="background:#4fc3f7;"></div><span>Real (post)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line" style="background:#f5a623;border-top:2px dashed #f5a623;height:0;width:24px;"></div>
+                    <span>Predicted</span>
+                </div>`;
+        }
+
         renderChart(
             data.chart_labels,
             data.chart_actual,
             data.chart_real_post,
             data.chart_predicted,
-            'Total Revenue by Year'
+            'Total Revenue by Year',
+            data.use_custom_cagr === 'both' ? data.chart_predicted_bl : null
         );
         renderTable(data.table_data, data.column_order);
+        computeTotalOfferKPIs(null);
+
+        // Update CVP grid if new options returned
+        if (data.cvp_options && data.cvp_options.length) {
+            populateCvpGrid(data.cvp_options);
+        }
 
     } catch(err) {
         document.getElementById('displayYearError').textContent =
@@ -992,31 +1490,110 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
     }
 });
 
+// ── CVP grid population ───────────────────────────────────────────────────────
+function populateCvpGrid(cvpOptions) {
+    const grid = document.getElementById('cvpGrid');
+    const placeholder = document.getElementById('cvpPlaceholder');
+    if (placeholder) placeholder.remove();
+    
+    // Handle both old format (array) and new format (object with sections)
+    const cvpsWithOffers = Array.isArray(cvpOptions) 
+        ? cvpOptions 
+        : (cvpOptions.with_offers || []);
+    const cvpsWithoutOffers = Array.isArray(cvpOptions) 
+        ? [] 
+        : (cvpOptions.without_offers || []);
+    
+    // Only add options not already present
+    const existing = new Set(
+        Array.from(grid.querySelectorAll('input[name="cvp"]')).map(i => i.value)
+    );
+    
+    let idx = 0;
+    
+    // ── SECTION 1: CVPs with offers ──
+    if (cvpsWithOffers.length > 0) {
+        const section1 = document.createElement('div');
+        section1.style.marginBottom = '12px';
+        
+        const header1 = document.createElement('div');
+        header1.style.cssText = 'font-weight:600;font-size:0.85rem;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;';
+        header1.textContent = '✓ With Offers';
+        section1.appendChild(header1);
+        
+        cvpsWithOffers.forEach(cvp => {
+            if (existing.has(cvp)) return;
+            const id  = `cvpDyn_${idx++}`;
+            const lbl = document.createElement('label');
+            lbl.className = 'svp-item';
+            lbl.id = id;
+            lbl.innerHTML = `
+                <input type="checkbox" name="cvp" value="${cvp}"
+                    onchange="toggleSvp(this,'${id}')">
+                <span class="svp-dot"></span>
+                <span>${cvp}</span>`;
+            section1.appendChild(lbl);
+        });
+        
+        grid.appendChild(section1);
+    }
+    
+    // ── SECTION 2: CVPs without offers ──
+    if (cvpsWithoutOffers.length > 0) {
+        const section2 = document.createElement('div');
+        section2.style.paddingTop = '8px';
+        section2.style.borderTop = '1px solid var(--border-color)';
+        
+        const header2 = document.createElement('div');
+        header2.style.cssText = 'font-weight:600;font-size:0.85rem;color:var(--text-muted);margin:8px 0 6px 0;text-transform:uppercase;letter-spacing:0.5px;';
+        header2.textContent = '✗ No Offers';
+        section2.appendChild(header2);
+        
+        cvpsWithoutOffers.forEach(cvp => {
+            if (existing.has(cvp)) return;
+            const id  = `cvpDyn_${idx++}`;
+            const lbl = document.createElement('label');
+            lbl.className = 'svp-item';
+            lbl.id = id;
+            lbl.style.opacity = '0.6';
+            lbl.innerHTML = `
+                <input type="checkbox" name="cvp" value="${cvp}" disabled
+                    onchange="toggleSvp(this,'${id}')">
+                <span class="svp-dot"></span>
+                <span style="color:var(--text-muted);">${cvp}</span>`;
+            section2.appendChild(lbl);
+        });
+        
+        grid.appendChild(section2);
+    }
+}
+
 
 // ── init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
+    const savedState = localStorage.getItem('advancedOptionsVisible');
+    if (savedState === 'true') {
+        document.getElementById('advancedOptions').style.display = 'block';
+        document.getElementById('advancedToggleBtn').classList.add('active');
+    }
     updateTopBar();
     filterDisplayEndYears();
     filterCagrEndYears();
+    initializeWarnings();
 });
+window.addEventListener('resize', adjustMainLayoutForWarnings);
 
 // ── download chart ────────────────────────────────────────────────────────────
 function downloadChart() {
     if (!revenueChart) { alert('No chart to download.'); return; }
+    const ds   = revenueChart.data.datasets;
+    const orig = ds.map(d => ({ bc: d.borderColor, bg: d.backgroundColor, pc: d.pointBackgroundColor }));
+    const origGridX = revenueChart.options.scales.x.grid.color;
+    const origTickX = revenueChart.options.scales.x.ticks.color;
 
-    const ds = revenueChart.data.datasets;
-    const orig = ds.map(d => ({
-        bc: d.borderColor, bg: d.backgroundColor, pc: d.pointBackgroundColor
-    }));
-    const origGrid = revenueChart.options.scales.x.grid.color;
-    const origTick = revenueChart.options.scales.x.ticks.color;
-
-    ds[0].borderColor = '#333'; ds[0].backgroundColor = 'rgba(51,51,51,.1)';
-    ds[0].pointBackgroundColor = '#333';
-    ds[1].borderColor = '#0288d1'; ds[1].backgroundColor = 'rgba(2,136,209,.1)';
-    ds[1].pointBackgroundColor = '#0288d1';
-    ds[2].borderColor = '#f5a623'; ds[2].backgroundColor = 'rgba(245,166,35,.15)';
-    ds[2].pointBackgroundColor = '#f5a623';
+    ds[0].borderColor = '#333'; ds[0].backgroundColor = 'rgba(51,51,51,.1)'; ds[0].pointBackgroundColor = '#333';
+    ds[1].borderColor = '#0288d1'; ds[1].backgroundColor = 'rgba(2,136,209,.1)'; ds[1].pointBackgroundColor = '#0288d1';
+    ds[2].borderColor = '#f5a623'; ds[2].backgroundColor = 'rgba(245,166,35,.15)'; ds[2].pointBackgroundColor = '#f5a623';
     revenueChart.options.scales.x.grid.color = 'rgba(0,0,0,.1)';
     revenueChart.options.scales.y.grid.color = 'rgba(0,0,0,.1)';
     revenueChart.options.scales.x.ticks.color = '#333';
@@ -1038,30 +1615,41 @@ function downloadChart() {
             .replace(/[^a-z0-9]/gi,'_')}_${new Date().toISOString().slice(0,10)}.png`;
         link.click();
         URL.revokeObjectURL(url);
-
         ds.forEach((d,i) => {
             d.borderColor = orig[i].bc;
             d.backgroundColor = orig[i].bg;
             d.pointBackgroundColor = orig[i].pc;
         });
-        revenueChart.options.scales.x.grid.color = origGrid;
-        revenueChart.options.scales.y.grid.color = origGrid;
-        revenueChart.options.scales.x.ticks.color = origTick;
-        revenueChart.options.scales.y.ticks.color = origTick;
+        revenueChart.options.scales.x.grid.color = origGridX;
+        revenueChart.options.scales.y.grid.color = origGridX;
+        revenueChart.options.scales.x.ticks.color = origTickX;
+        revenueChart.options.scales.y.ticks.color = origTickX;
         revenueChart.update();
     });
 }
 
 // ── download excel ────────────────────────────────────────────────────────────
 async function downloadTable() {
-    if (!currentTableData?.length) {
-        alert('No data to download.'); return;
-    }
+    if (!currentTableData?.length) { alert('No data to download.'); return; }
     try {
         document.getElementById('loadingOverlay').classList.add('active');
+        // Build full column list including session columns
+        const fullColumns = [...currentColumnOrder];
+        if (sessionCagrs.length && currentChartData) {
+            const labels    = currentChartData.chart_labels;
+            const predStart = String(currentChartData.pred_start_year);
+            const psIdx     = labels.indexOf(predStart);
+            sessionCagrs.forEach(sc => {
+                labels.forEach((y, li) => {
+                    if (li < psIdx) return;
+                    const col = `Predicted_Session_${sc.id}_${y}`;
+                    if (!fullColumns.includes(col)) fullColumns.push(col);
+                });
+            });
+        }
         const excelData = currentTableData.map(row => {
             const clean = {};
-            currentColumnOrder.forEach(col => {
+            fullColumns.forEach(col => {
                 let v = row[col];
                 if (typeof v === 'string' && v.includes(',')) {
                     const n = parseFloat(v.replace(/,/g,''));
@@ -1074,19 +1662,17 @@ async function downloadTable() {
             });
             return clean;
         });
-
         const resp = await fetch('/download_excel', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
                 data: excelData,
-                columns: currentColumnOrder,
+                columns: fullColumns,
                 display_start_year: currentChartData.display_start_year,
                 display_end_year:   currentChartData.display_end_year,
             })
         });
         if (!resp.ok) throw new Error('Failed to generate Excel file');
-
         const blob = await resp.blob();
         const url  = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -1103,7 +1689,7 @@ async function downloadTable() {
     }
 }
 
-// ── Initialize warnings ────────────────────────────────────────────────────
+// ── warnings ──────────────────────────────────────────────────────────────────
 function initializeWarnings() {
     const warningsData = {
         {% if warnings %}
@@ -1112,11 +1698,7 @@ function initializeWarnings() {
             {
                 type: '{{ warning.type }}',
                 message: '{{ warning.message }}',
-                details: [
-                    {% for item in warning.details %}
-                    '{{ item }}',
-                    {% endfor %}
-                ]
+                details: [{% for item in warning.details %}'{{ item }}',{% endfor %}]
             },
             {% endfor %}
         ]
@@ -1124,86 +1706,51 @@ function initializeWarnings() {
         warnings: []
         {% endif %}
     };
-
-    if (warningsData.warnings.length === 0) return;
-
+    if (!warningsData.warnings.length) return;
     const container = document.getElementById('warningsContainer');
     container.classList.add('active');
-
     warningsData.warnings.forEach(warning => {
-        const warningBox = document.createElement('div');
-        warningBox.className = `warning-box warning-${warning.type}`;
-        
+        const box = document.createElement('div');
+        box.className = `warning-box warning-${warning.type}`;
         let detailsHtml = '';
-        if (warning.details && warning.details.length > 0) {
-            detailsHtml = `
-                <div class="warning-details">
-                    <details>
-                        <summary>View details (${warning.details.length} items)</summary>
-                        <ul>
-                            ${warning.details.map(item => `<li>${item}</li>`).join('')}
-                        </ul>
-                    </details>
-                </div>
-            `;
+        if (warning.details && warning.details.length) {
+            detailsHtml = `<div class="warning-details"><details>
+                <summary>View details (${warning.details.length} items)</summary>
+                <ul>${warning.details.map(i => `<li>${i}</li>`).join('')}</ul>
+            </details></div>`;
         }
-
-        warningBox.innerHTML = `
+        box.innerHTML = `
             <div class="warning-header">
                 <span class="warning-icon">⚠️</span>
                 <span class="warning-title">${warning.message}</span>
-                <button type="button" class="warning-close" onclick="removeWarning(this)">✕</button>
-            </div>
-            ${detailsHtml}
-        `;
-
-        container.appendChild(warningBox);
+                <button class="warning-close" onclick="removeWarning(this)">✕</button>
+            </div>${detailsHtml}`;
+        container.appendChild(box);
     });
-
-    // Adjust main layout
     adjustMainLayoutForWarnings();
 }
-
 function removeWarning(closeBtn) {
-    const warningBox = closeBtn.closest('.warning-box');
-    warningBox.style.animation = 'slideUp 0.3s ease forwards';
-    
+    const box = closeBtn.closest('.warning-box');
+    box.style.animation = 'slideUp 0.3s ease forwards';
     setTimeout(() => {
-        warningBox.remove();
-        
-        // If no more warnings, hide container
+        box.remove();
         const container = document.getElementById('warningsContainer');
-        if (container.children.length === 0) {
+        if (!container.children.length) {
             container.classList.remove('active');
             adjustMainLayoutForWarnings();
         }
     }, 300);
 }
-
 function adjustMainLayoutForWarnings() {
-    const container = document.getElementById('warningsContainer');
+    const container  = document.getElementById('warningsContainer');
     const mainLayout = document.querySelector('.main-layout');
-    
     if (container.classList.contains('active') && container.children.length > 0) {
-        const height = container.offsetHeight;
-        mainLayout.style.marginTop = height + 'px';
+        mainLayout.style.marginTop = container.offsetHeight + 'px';
         mainLayout.classList.add('warnings-visible');
     } else {
         mainLayout.style.marginTop = '0';
         mainLayout.classList.remove('warnings-visible');
     }
 }
-
-// Initialize on page load
-window.addEventListener('DOMContentLoaded', () => {
-    initializeWarnings();
-    updateTopBar();
-    filterDisplayEndYears();
-    filterCagrEndYears();
-});
-
-// Adjust on window resize
-window.addEventListener('resize', adjustMainLayoutForWarnings);
-
 </script>
 {% endblock %}

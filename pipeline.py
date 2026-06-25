@@ -585,7 +585,7 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
 
         total_row['Offer']           = 'TOTAL'
         total_row['SVP']             = ''
-        total_row['CVP']             = ''  # ✅ ADD THIS LINE
+        total_row['CVP']             = ''
         total_row['Sub-segment 2']   = ''
         total_row['Market_Category'] = ''
         total_row['Business_Line']   = ''

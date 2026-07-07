@@ -17,6 +17,42 @@ revenue_years     = []
 market_size_years = []
 df_all_data       = None
 
+TRANSLATIONS_DIR = os.path.join(BASE_DIR, 'translations')
+
+def load_translations(language='en'):
+    """Load translation file for given language"""
+    try:
+        filepath = os.path.join(TRANSLATIONS_DIR, f'{language}.json')
+        if os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error loading translations: {e}")
+    return {}
+
+@app.route('/api/translations/<language>')
+def get_translations(language):
+    """API endpoint to fetch translations"""
+    if language not in ['en', 'fr']:
+        language = 'en'
+    
+    translations = load_translations(language)
+    return jsonify(translations)
+
+@app.route('/api/settings', methods=['GET', 'POST'])
+def settings_api():
+    """Get or update user settings"""
+    if request.method == 'GET':
+        # Return current settings from session/localStorage
+        return jsonify({
+            'language': request.args.get('language', 'en'),
+            'theme': request.args.get('theme', 'dark-mode')
+        })
+    
+    elif request.method == 'POST':
+        data = request.json
+        # Settings are stored in localStorage on client side
+        return jsonify({'success': True})
 
 @app.route('/')
 def index():

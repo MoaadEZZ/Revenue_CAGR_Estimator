@@ -1,67 +1,266 @@
-<!-- settings.html -->
+{% extends "base.html" %}
+
+{% block title %}Settings - Market Referential{% endblock %}
+
+{% block content %}
+
 <div class="settings-container">
-    
-    <!-- FILE STATUS SECTION -->
-    <div class="file-status-panel">
-        <h3>📁 Data Files Status</h3>
-        
-        <div class="file-card">
-            <div class="file-info">
-                <span class="file-name">CAGR Mapper.xlsx</span>
-                <span class="file-date">Last updated: 2025-01-15</span>
-                <span class="file-rows">1,247 offers</span>
+    <div class="settings-header">
+        <h1 id="settingsTitle">Settings</h1>
+        <p id="settingsSubtitle">Customize your experience</p>
+    </div>
+
+    <div class="settings-grid">
+        <!-- Language Setting -->
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <h3 id="languageLabel">Language</h3>
+                <p id="languageDesc">Choose your preferred language</p>
             </div>
-            <button class="btn-upload">Replace</button>
+            <div class="settings-card-body">
+                <div class="language-options">
+                    <label class="language-option active" id="langEnLabel">
+                        <input type="radio" name="language" value="en" checked 
+                               onchange="changeLanguage('en')">
+                        <span class="option-flag">🇬🇧</span>
+                        <span class="option-text">English</span>
+                    </label>
+                    <label class="language-option" id="langFrLabel">
+                        <input type="radio" name="language" value="fr" 
+                               onchange="changeLanguage('fr')">
+                        <span class="option-flag">🇫🇷</span>
+                        <span class="option-text">Français</span>
+                    </label>
+                </div>
+            </div>
         </div>
-        
-        <div class="file-card">
-            <div class="file-info">
-                <span class="file-name">Market Sizing - 3Q 2025.xlsx</span>
-                <span class="file-date">Last updated: 2025-01-10</span>
-                <span class="file-rows">5,892 records</span>
+
+        <!-- Theme Setting -->
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <h3 id="themeLabel">Theme</h3>
+                <p id="themeDesc">Choose your preferred color scheme</p>
             </div>
-            <button class="btn-upload">Replace</button>
+            <div class="settings-card-body">
+                <div class="theme-options">
+                    <label class="theme-option active" id="themeDarkLabel">
+                        <input type="radio" name="theme" value="dark-mode" checked 
+                               onchange="changeTheme('dark-mode')">
+                        <span class="option-icon">🌙</span>
+                        <span class="option-text" id="darkModeText">Dark Mode</span>
+                    </label>
+                    <label class="theme-option" id="themeLightLabel">
+                        <input type="radio" name="theme" value="light-mode" 
+                               onchange="changeTheme('light-mode')">
+                        <span class="option-icon">☀️</span>
+                        <span class="option-text" id="lightModeText">Light Mode</span>
+                    </label>
+                </div>
+            </div>
         </div>
     </div>
-    
-    <!-- UPLOAD SECTION -->
-    <div class="upload-panel">
-        <h3>📤 Upload New File</h3>
-        
-        <div class="upload-form">
-            <select id="fileType">
-                <option>Select file type...</option>
-                <option value="cagr">CAGR Mapper</option>
-                <option value="market">Market Size</option>
-            </select>
-            
-            <input type="file" id="fileInput" accept=".xlsx">
-            
-            <div class="validation-info">
-                <p>Required columns for CAGR Mapper:</p>
-                <ul>
-                    <li>catégorie</li>
-                    <li>Sub-segment 2</li>
-                    <li>Segment</li>
-                    <li>pr_offer</li>
-                </ul>
-            </div>
-            
-            <button onclick="uploadFile()">Upload & Validate</button>
-        </div>
-    </div>
-    
-    <!-- VERSION HISTORY -->
-    <div class="history-panel">
-        <h3>📜 Version History</h3>
-        <table>
-            <tr>
-                <th>File</th>
-                <th>Date</th>
-                <th>Rows</th>
-                <th>Action</th>
-            </tr>
-            <!-- populated dynamically -->
-        </table>
+
+    <div class="settings-footer">
+        <p id="settingsSaved" style="color: var(--accent-orange); display: none;">✓ Settings saved</p>
     </div>
 </div>
+
+<style>
+    .settings-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 24px;
+    }
+
+    .settings-header {
+        margin-bottom: 40px;
+    }
+
+    .settings-header h1 {
+        font-size: 2rem;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        font-family: var(--font-main);
+    }
+
+    .settings-header p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        font-family: var(--font-main);
+    }
+
+    .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+    }
+
+    .settings-card {
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+        transition: border-color 0.3s ease;
+    }
+
+    .settings-card:hover {
+        border-color: var(--accent-orange);
+    }
+
+    .settings-card-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .settings-card-header h3 {
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+        font-family: var(--font-main);
+    }
+
+    .settings-card-header p {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        font-family: var(--font-main);
+    }
+
+    .settings-card-body {
+        padding: 20px;
+    }
+
+    .language-options,
+    .theme-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .language-option,
+    .theme-option {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: var(--bg-card);
+    }
+
+    .language-option:hover,
+    .theme-option:hover {
+        border-color: var(--accent-orange);
+        background-color: rgba(245, 166, 35, 0.05);
+    }
+
+    .language-option.active,
+    .theme-option.active {
+        border-color: var(--accent-orange);
+        background-color: rgba(245, 166, 35, 0.1);
+    }
+
+    .language-option input[type="radio"],
+    .theme-option input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: var(--accent-orange);
+    }
+
+    .option-flag,
+    .option-icon {
+        font-size: 1.5rem;
+    }
+
+    .option-text {
+        color: var(--text-primary);
+        font-family: var(--font-main);
+        font-weight: 500;
+    }
+
+    .settings-footer {
+        text-align: center;
+        padding: 20px;
+        border-top: 1px solid var(--border-color);
+    }
+</style>
+
+<script>
+    let currentLanguage = localStorage.getItem('language') || 'en';
+    let translations = {};
+
+    // Load translations on page load
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadTranslations(currentLanguage);
+        updateSettingsUI();
+        
+        // Set current language radio button
+        document.querySelector(`input[name="language"][value="${currentLanguage}"]`).checked = true;
+        document.querySelector(`label[id="lang${currentLanguage.toUpperCase()}Label"]`).classList.add('active');
+    });
+
+    async function loadTranslations(language) {
+        try {
+            const response = await fetch(`/api/translations/${language}`);
+            translations = await response.json();
+            currentLanguage = language;
+            localStorage.setItem('language', language);
+        } catch (error) {
+            console.error('Error loading translations:', error);
+        }
+    }
+
+    function updateSettingsUI() {
+        // Update page titles and labels
+        document.getElementById('settingsTitle').textContent = 
+            translations.settings?.title || 'Settings';
+        document.getElementById('settingsSubtitle').textContent = 
+            'Customize your experience';
+        document.getElementById('languageLabel').textContent = 
+            translations.settings?.language || 'Language';
+        document.getElementById('themeLabel').textContent = 
+            translations.settings?.theme || 'Theme';
+        document.getElementById('darkModeText').textContent = 
+            translations.settings?.dark_mode || 'Dark Mode';
+        document.getElementById('lightModeText').textContent = 
+            translations.settings?.light_mode || 'Light Mode';
+    }
+
+    async function changeLanguage(language) {
+        await loadTranslations(language);
+        updateSettingsUI();
+        
+        // Update active state
+        document.querySelectorAll('.language-option').forEach(el => el.classList.remove('active'));
+        document.querySelector(`label[id="lang${language.toUpperCase()}Label"]`).classList.add('active');
+        
+        // Broadcast language change to other pages
+        window.dispatchEvent(new CustomEvent('languageChanged', { detail: { language } }));
+        
+        showSavedMessage();
+    }
+
+    function changeTheme(theme) {
+        applyTheme(theme);
+        localStorage.setItem('theme', theme);
+        
+        // Update active state
+        document.querySelectorAll('.theme-option').forEach(el => el.classList.remove('active'));
+        document.querySelector(`label[id="theme${theme === 'dark-mode' ? 'Dark' : 'Light'}Label"]`).classList.add('active');
+        
+        showSavedMessage();
+    }
+
+    function showSavedMessage() {
+        const msg = document.getElementById('settingsSaved');
+        msg.style.display = 'block';
+        setTimeout(() => {
+            msg.style.display = 'none';
+        }, 3000);
+    }
+</script>
+
+{% endblock %}

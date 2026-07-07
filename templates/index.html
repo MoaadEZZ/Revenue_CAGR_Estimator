@@ -1,13 +1,81 @@
 {% extends "base.html" %}
 {% block title %}Market Referential{% endblock %}
+
+{% block extra_css %}
+<style>
+    .svp-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: var(--bg-card);
+        user-select: none;
+    }
+
+    .svp-item:hover {
+        border-color: var(--accent-orange);
+        background-color: rgba(245, 166, 35, 0.05);
+    }
+
+    .svp-item.active {
+        border-color: var(--accent-orange);
+        background-color: rgba(245, 166, 35, 0.15);
+    }
+
+    .svp-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: var(--accent-orange);
+    }
+
+    .svp-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: var(--text-muted);
+        transition: all 0.2s ease;
+    }
+
+    .svp-item.active .svp-dot {
+        background-color: var(--accent-orange);
+        box-shadow: 0 0 8px rgba(245, 166, 35, 0.5);
+    }
+
+    .svp-item span:last-child {
+        color: var(--text-primary);
+        font-family: var(--font-main);
+        font-size: 0.9rem;
+    }
+
+    .svp-item.active span:last-child {
+        color: var(--accent-orange);
+        font-weight: 500;
+    }
+
+    /* ── SVP GRID ── */
+    .svp-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+</style>
+{% endblock %}
+
 {% block content %}
 
 <!-- TOP BAR -->
 <div class="top-bar">
     <span class="diamond">◆</span>
-    <span>Market Referential</span>
+    <span data-i18n="index.title">Market Referential</span>
     <span class="separator">·</span>
-    <span class="highlight" id="topBarSvp">Select SVP & Years</span>
+    <span class="highlight" id="topBarSvp" data-i18n="index.parameters">Select SVP & Years</span>
     <span class="separator" id="topBarArrow" style="display:none">→</span>
     <span id="topBarYears" style="display:none"></span>
 </div>
@@ -22,12 +90,12 @@
 
     <!-- ══════════════════ LEFT PANEL ══════════════════ -->
     <div class="left-panel">
-        <div class="panel-title">Parameters</div>
+        <div class="panel-title" data-i18n="index.parameters">Parameters</div>
         <form id="analysisForm" method="POST" action="/results_data">
 
             <!-- SVP -->
             <div>
-                <div class="form-section-label">SVP Categories</div>
+                <div class="form-section-label" data-i18n="index.svp_categories">SVP Categories</div>
                 <div class="svp-grid">
                     {% for svp in svp_options %}
                     <label class="svp-item" id="svpLabel_{{ loop.index }}">
@@ -42,7 +110,7 @@
 
             <!-- CVP -->
             <div>
-                <div class="form-section-label">CVP Categories</div>
+                <div class="form-section-label" data-i18n="index.cvp_categories">CVP Categories</div>
                 <div class="svp-grid" id="cvpGrid">
                     {% if cvp_options %}
                         {% if cvp_options is mapping %}
@@ -101,10 +169,8 @@
 
             <!-- DISPLAY INTERVAL -->
             <div>
-                <div class="form-section-label">
-                    Display Interval
-                    <span class="label-hint">(revenue min → market max)</span>
-                </div>
+                <span data-i18n="index.display_interval">Display Interval</span>
+                <span class="label-hint" data-i18n="index.display_interval_hint">(revenue min → market max)</span>
                 <div class="year-row">
                     <div class="custom-select-wrapper" style="flex:1">
                         <select class="custom-select" id="display_start_year"
@@ -137,10 +203,8 @@
 
             <!-- CAGR YEARS -->
             <div>
-                <div class="form-section-label">
-                    CAGR Years
-                    <span class="label-hint">(from market size data)</span>
-                </div>
+                <span data-i18n="index.cagr_years">CAGR Years</span>
+                <span class="label-hint" data-i18n="index.cagr_years_hint">(from market size data)</span>
                 <div class="year-row">
                     <div class="custom-select-wrapper" style="flex:1">
                         <select class="custom-select" id="cagr_start_year"
@@ -173,7 +237,7 @@
 
             <!-- REGION -->
             <div>
-                <div class="form-section-label">Region</div>
+                <div class="form-section-label" data-i18n="index.region">Region</div>
                 <div class="region-grid">
                     {% for region in regions %}
                     <label class="region-item {% if loop.first %}active{% endif %}"
@@ -189,8 +253,8 @@
             </div>
 
             <!-- ADVANCED TOGGLE -->
-            <button type="button" style="margin-top:10px;" class="advanced-toggle-btn"
-                    id="advancedToggleBtn" onclick="toggleAdvancedOptions()">
+            <button type="button" class="advanced-toggle-btn" id="advancedToggleBtn" 
+                    onclick="toggleAdvancedOptions()" data-i18n="index.advanced_options">
                 ▼ Advanced Options
             </button>
 
@@ -346,7 +410,7 @@
             </div><!-- /advancedOptions -->
 
             <div class="error-msg" id="svpError"></div>
-            <button type="submit" class="run-btn" id="runBtn">▶ Run Analysis</button>
+            <button type="submit" class="run-btn" id="runBtn" data-i18n="index.run_analysis">▶ Run Analysis</button>
         </form>
     </div><!-- /left-panel -->
 
@@ -357,9 +421,10 @@
         <div class="chart-area" id="chartArea">
             <div class="chart-header">
                 <div>
-                    <div class="chart-title" id="chartTitle">Total Revenue by Year</div>
-                    <div class="chart-subtitle" id="chartSubtitle">
-                        Select parameters and run analysis</div>
+                    <div class="chart-title" id="chartTitle" data-i18n="index.total_revenue">Total Revenue by Year</div>
+                    <div class="chart-subtitle" id="chartSubtitle" data-i18n="index.select_parameters">
+                        Select parameters and run analysis
+                    </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                     <div class="chart-legend" id="chartLegend">
@@ -393,7 +458,7 @@
         <!-- KPI STRIP -->
         <div class="kpi-strip">
             <div class="kpi-card">
-                <div class="kpi-label">
+                <div class="kpi-label" data-i18n="index.kpi_selected_offer_cagr_mif">
                     Selected Offer CAGR MIF
                     <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                     <div class="tooltip-content">
@@ -468,8 +533,10 @@
         <div class="table-area" id="tableArea">
             <div class="empty-state">
                 <div class="icon">◈</div>
-                <p>Configure your parameters and click<br>
-                   <strong>Run Analysis</strong> to see results</p>
+                <p data-i18n="index.configure_and_run">
+                    Configure your parameters and click<br>
+                    <strong>Run Analysis</strong> to see results
+                </p>
             </div>
         </div>
     </div><!-- /right-panel -->
@@ -553,6 +620,95 @@
     border-color:var(--accent-orange);
     background-color:rgba(245,166,35,.1); color:var(--accent-orange);
 }
+
+/* ── REGION ITEMS ── */
+.region-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: var(--bg-card);
+    user-select: none;
+}
+
+.region-item:hover {
+    border-color: var(--accent-orange);
+    background-color: rgba(245, 166, 35, 0.05);
+}
+
+.region-item.active {
+    border-color: var(--accent-orange);
+    background-color: rgba(245, 166, 35, 0.15);
+}
+
+.region-item input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-orange);
+}
+
+.region-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--text-muted);
+    transition: all 0.2s ease;
+}
+
+.region-dot.active {
+    background-color: var(--accent-orange);
+    box-shadow: 0 0 8px rgba(245, 166, 35, 0.5);
+}
+
+.region-item span:last-child {
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    font-size: 0.9rem;
+}
+
+.region-item.active span:last-child {
+    color: var(--accent-orange);
+    font-weight: 500;
+}
+
+/* ── REGION GRID ── */
+.region-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+/* ── ERROR MESSAGES ── */
+.error-msg {
+    color: #ff6b6b;
+    font-size: 0.75rem;
+    margin-top: 6px;
+    display: block;
+    min-height: 16px;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.error-msg:empty {
+    display: none;
+}
+
 </style>
 
 <!-- ══════════════════ SCRIPT ══════════════════ -->
@@ -609,18 +765,27 @@ function toggleCagrMode(activeLabelId) {
 // ── SVP / region toggles ──────────────────────────────────────────────────────
 function toggleSvp(checkbox, labelId) {
     const label = document.getElementById(labelId);
-    checkbox.checked ? label.classList.add('active') : label.classList.remove('active');
+    
+    if (checkbox.checked) {
+        label.classList.add('active');
+    } else {
+        label.classList.remove('active');
+    }
+    
     updateTopBar();
 }
+
 function toggleRegion(activeLabelId) {
     document.querySelectorAll('.region-item').forEach(el => {
         el.classList.remove('active');
         el.querySelector('.region-dot').classList.remove('active');
     });
+
     const al = document.getElementById(activeLabelId);
     al.classList.add('active');
     al.querySelector('.region-dot').classList.add('active');
 }
+
 function toggleSubSegFilter(labelId) {
     document.querySelectorAll('[id^="subSegLabel_"]').forEach(lbl => {
         lbl.classList.remove('active');
@@ -1206,6 +1371,67 @@ function _enrichTableWithSessionCagrs() {
     });
 }
 
+// ── LANGUAGE SUPPORT ──────────────────────────────────────────────────────────
+
+let currentLanguage = localStorage.getItem('language') || 'en';
+let translations = {};
+
+// Load translations on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadTranslations(currentLanguage);
+    updatePageLanguage();
+    
+    // Listen for language changes from settings page
+    window.addEventListener('languageChanged', async (e) => {
+        await loadTranslations(e.detail.language);
+        updatePageLanguage();
+    });
+});
+
+async function loadTranslations(language) {
+    try {
+        const response = await fetch(`/api/translations/${language}`);
+        translations = await response.json();
+        currentLanguage = language;
+    } catch (error) {
+        console.error('Error loading translations:', error);
+    }
+}
+
+function t(path) {
+    /**
+     * Get translation by dot notation path
+     * Example: t('index.parameters') returns "Parameters"
+     */
+    const keys = path.split('.');
+    let value = translations;
+    
+    for (const key of keys) {
+        if (value && typeof value === 'object' && key in value) {
+            value = value[key];
+        } else {
+            return path; // Return path if translation not found
+        }
+    }
+    
+    return value || path;
+}
+
+function updatePageLanguage() {
+    // Update all elements with data-i18n attribute
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.textContent = t(key);
+    });
+    
+    // Update all placeholders with data-i18n-placeholder attribute
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        el.placeholder = t(key);
+    });
+}
+    // Update all titles with data-i18n-title
+
 // ── compute Total Offer MIF / BL KPIs ────────────────────────────────────────
 function computeTotalOfferKPIs(rowIndices) {
     if (!currentChartData || !currentTableData) return;
@@ -1345,11 +1571,15 @@ function _appendSessionDatasetsToChart(activeIndices) {
 }
 
 
-// ── form submit ───────────────────────────────────────────────────────────────
 document.getElementById('analysisForm').addEventListener('submit', async function(e) {
     e.preventDefault();
+    
+    // Clear all previous errors
     ['svpError','displayYearError','cagrYearError','predStartError']
-        .forEach(id => document.getElementById(id).textContent = '');
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '';
+        });
 
     const svps      = document.querySelectorAll('input[name="svp"]:checked');
     const cvps      = document.querySelectorAll('input[name="cvp"]:checked');
@@ -1359,31 +1589,62 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
     const cagrEnd   = document.getElementById('cagr_end_year').value;
     const predStart = document.getElementById('pred_start_year').value;
 
+    // ── VALIDATION ──
     if (!svps.length && !cvps.length) {
-        document.getElementById('svpError').textContent =
-            'Please select at least one SVP or CVP category'; return;
-    }
-    if (!dispStart || !dispEnd) {
-        document.getElementById('displayYearError').textContent =
-            'Please select both display interval years'; return;
-    }
-    if (parseInt(dispEnd) <= parseInt(dispStart)) {
-        document.getElementById('displayYearError').textContent =
-            'End year must be greater than start year'; return;
-    }
-    if (!cagrStart || !cagrEnd) {
-        document.getElementById('cagrYearError').textContent =
-            'Please select both CAGR years'; return;
-    }
-    if (parseInt(cagrEnd) <= parseInt(cagrStart)) {
-        document.getElementById('cagrYearError').textContent =
-            '2nd year must be greater than 1st year'; return;
-    }
-    if (!predStart) {
-        document.getElementById('predStartError').textContent =
-            'Please select a prediction start year'; return;
+        const errorEl = document.getElementById('svpError');
+        if (errorEl) {
+            errorEl.textContent = t('errors.select_svp_cvp') || 
+                'Please select at least one SVP or CVP category';
+        }
+        return;
     }
 
+    if (!dispStart || !dispEnd) {
+        const errorEl = document.getElementById('displayYearError');
+        if (errorEl) {
+            errorEl.textContent = t('errors.select_display_years') || 
+                'Please select both display interval years';
+        }
+        return;
+    }
+
+    if (parseInt(dispEnd) <= parseInt(dispStart)) {
+        const errorEl = document.getElementById('displayYearError');
+        if (errorEl) {
+            errorEl.textContent = t('errors.display_end_greater') || 
+                'End year must be greater than start year';
+        }
+        return;
+    }
+
+    if (!cagrStart || !cagrEnd) {
+        const errorEl = document.getElementById('cagrYearError');
+        if (errorEl) {
+            errorEl.textContent = t('errors.select_cagr_years') || 
+                'Please select both CAGR years';
+        }
+        return;
+    }
+
+    if (parseInt(cagrEnd) <= parseInt(cagrStart)) {
+        const errorEl = document.getElementById('cagrYearError');
+        if (errorEl) {
+            errorEl.textContent = t('errors.cagr_end_greater') || 
+                '2nd year must be greater than 1st year';
+        }
+        return;
+    }
+
+    if (!predStart) {
+        const errorEl = document.getElementById('predStartError');
+        if (errorEl) {
+            errorEl.textContent = t('errors.select_pred_start') || 
+                'Please select a prediction start year';
+        }
+        return;
+    }
+
+    // ── SUBMIT ──
     // Collect selected columns
     const selectedColumns = [];
     document.querySelectorAll('.column-checkbox input:checked').forEach(cb => {
@@ -1401,9 +1662,12 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         const data = await resp.json();
 
         if (data.error) {
-            document.getElementById('displayYearError').textContent = data.error; return;
+            const errorEl = document.getElementById('displayYearError');
+            if (errorEl) errorEl.textContent = data.error;
+            return;
         }
 
+        // ── SUCCESS: Process results ──
         currentChartData = data;
         selectedRowIndices = new Set();
         sessionCagrs       = [];
@@ -1414,7 +1678,6 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         document.getElementById('kpiCagrActualInterval').textContent  = data.actual_cagr;
         document.getElementById('kpiAvgCagr').textContent             = data.avg_cagr;
         document.getElementById('kpiSelectedOfferCagrBL').textContent = '—';
-
 
         // Total CAGR
         let totalCagr = '—';
@@ -1428,6 +1691,7 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             }
         }
         document.getElementById('kpiTotalCagr').textContent = totalCagr;
+
         document.getElementById('chartSubtitle').textContent =
             `Display: ${data.display_start_year}→${data.display_end_year} · ` +
             `CAGR: ${data.cagr_start_year}→${data.cagr_end_year} · ` +
@@ -1482,8 +1746,10 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         }
 
     } catch(err) {
-        document.getElementById('displayYearError').textContent =
-            'An error occurred: ' + err.message;
+        const errorEl = document.getElementById('displayYearError');
+        if (errorEl) {
+            errorEl.textContent = 'An error occurred: ' + err.message;
+        }
     } finally {
         document.getElementById('loadingOverlay').classList.remove('active');
         document.getElementById('runBtn').disabled = false;

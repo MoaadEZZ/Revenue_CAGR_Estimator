@@ -12,6 +12,7 @@
             onload="renderMathInElement(document.body);"></script>
     <style>
         :root {
+            /* Light mode (default) */
             --bg-dark:       #0f0e17;
             --bg-panel:      #1a1825;
             --bg-card:       #211f2e;
@@ -23,7 +24,40 @@
             --font-main: 'Helvetica Neue', 'Helvetica 75', 'Helvetica 55', Arial, sans-serif;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* Light Mode */
+        body.light-mode {
+            --bg-dark:       #f8f9fa;
+            --bg-panel:      #ffffff;
+            --bg-card:       #f0f2f5;
+            --accent-orange: #e09510;
+            --accent-purple: #5a4a9f;
+            --text-primary:  #1a1a1a;
+            --text-muted:    #6c757d;
+            --border-color:  #dee2e6;
+        }
+
+        /* Dark Mode (default) */
+        body.dark-mode {
+            --bg-dark:       #0f0e17;
+            --bg-panel:      #1a1825;
+            --bg-card:       #211f2e;
+            --accent-orange: #f5a623;
+            --accent-purple: #6c63ff;
+            --text-primary:  #ffffff;
+            --text-muted:    #7a7a9d;
+            --border-color:  #2e2b3e;
+        }
+
+        /* Smooth transition for theme switching */
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+            margin: 0; padding: 0;
+        }
+
+        /* Prevent transition on page load */
+        body.no-transition * {
+            transition: none !important;
+        }
 
         body {
             background-color: var(--bg-dark);
@@ -199,6 +233,24 @@
             text-transform: uppercase; margin-bottom: 8px;
             font-family: var(--font-main);
         }
+
+        .theme-toggle-btn {
+            background: none;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+            transition: color 0.2s;
+            font-size: 1.2rem;
+        }
+
+        .theme-toggle-btn:hover {
+            color: var(--accent-orange);
+        }
+
 
         /* ── CUSTOM SELECT ── */
         .custom-select-wrapper { position: relative; }
@@ -530,11 +582,13 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    
     <nav class="navbar-custom">
         <a href="/" class="navbar-brand-custom">
             <span class="logo-icon">◆</span>
             <span>Market Referential</span>
         </a>
+
         <ul class="navbar-nav-custom">
             <li>
                 <a href="/" class="nav-link-custom {% if request.endpoint == 'index' %}active{% endif %}">
@@ -551,12 +605,57 @@
                     <span>⚙️</span><span>Settings</span>
                 </a>
             </li>
+            <li>
+                <button id="themeToggleBtn" class="nav-link-custom theme-toggle-btn" 
+                        onclick="toggleTheme()" title="Toggle dark/light mode">
+                    <span id="themeIcon">🌙</span>
+                </button>
+            </li>
         </ul>
     </nav>
+
 
     <div id="warningsContainer" class="warnings-sticky-container"></div>
     {% block content %}{% endblock %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}
+    <script>
+        // Initialize theme on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark-mode';
+            applyTheme(savedTheme);
+        });
+
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.classList.contains('dark-mode') ? 'dark-mode' : 'light-mode';
+            const newTheme = currentTheme === 'dark-mode' ? 'light-mode' : 'dark-mode';
+            
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        function applyTheme(theme) {
+            const body = document.body;
+            const icon = document.getElementById('themeIcon');
+            
+            // Prevent transition flash on initial load
+            if (!body.classList.contains('dark-mode') && !body.classList.contains('light-mode')) {
+                body.classList.add('no-transition');
+            }
+            
+            body.classList.remove('dark-mode', 'light-mode');
+            body.classList.add(theme);
+            
+            // Update icon
+            icon.textContent = theme === 'dark-mode' ? '🌙' : '☀️';
+            
+            // Remove no-transition class after applying theme
+            setTimeout(() => {
+                body.classList.remove('no-transition');
+            }, 10);
+        }
+    </script>
+
 </body>
 </html>

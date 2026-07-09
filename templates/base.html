@@ -26,9 +26,9 @@
 
         /* Light Mode */
         body.light-mode {
-            --bg-dark:       #f8f9fa;
-            --bg-panel:      #ffffff;
-            --bg-card:       #f0f2f5;
+            --bg-dark:       #faf2e3;
+            --bg-panel:      #f6e5d7;
+            --bg-card:       #faf2e3;
             --accent-orange: #e09510;
             --accent-purple: #5a4a9f;
             --text-primary:  #1a1a1a;
@@ -235,20 +235,23 @@
         }
 
         .theme-toggle-btn {
-            background: none;
-            border: none;
-            padding: 8px 12px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 6px;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 6px;
             color: var(--text-muted);
-            transition: color 0.2s;
-            font-size: 1.2rem;
+            transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+            font-size: 1.1rem;
         }
 
         .theme-toggle-btn:hover {
             color: var(--accent-orange);
+            border-color: var(--accent-orange);
+            background-color: rgba(245,166,35,.1);
         }
 
 
@@ -484,13 +487,21 @@
         .tooltip-content {
             border: 3px solid #e09510; position: fixed;
             background-color: #333; color: #fff; border-radius: 4px;
-            padding: 8px 12px; font-size: 1rem; max-width: 400px;
+            padding: 8px 12px; font-size: 0.85rem; max-width: 340px;
             z-index: 1001; box-shadow: 0 4px 12px rgba(0,0,0,.4);
             white-space: normal; line-height: 1.4;
             opacity: 0; visibility: hidden; transform: translateY(8px);
             transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s ease;
             pointer-events: none; font-family: var(--font-main);
         }
+        .tooltip-content > div { margin-bottom: 6px; }
+        .tooltip-content > div:last-child { margin-bottom: 0; }
+        .tooltip-formula {
+            background-color: rgba(255,255,255,.08);
+            border-radius: 4px; padding: 6px 8px; overflow-x: auto;
+            font-size: 0.8rem;
+        }
+        .tooltip-formula .katex { font-size: 0.95em; }
         .tooltip-content.tooltip-active {
             opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto;
         }
@@ -580,6 +591,14 @@
         .session-cagr-item button:hover { opacity: 0.7; }
     </style>
     {% block extra_css %}{% endblock %}
+    <!-- Set data-theme on <html> as early as possible (document.body doesn't exist yet here) -->
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'dark-mode';
+            document.documentElement.setAttribute('data-theme', savedTheme === 'dark-mode' ? 'dark' : 'light');
+        })();
+    </script>
+
 </head>
 <body>
     
@@ -606,8 +625,7 @@
                 </a>
             </li>
             <li>
-                <button id="themeToggleBtn" class="nav-link-custom theme-toggle-btn" 
-                        onclick="toggleTheme()" title="Toggle dark/light mode">
+                <button id="themeToggle" class="theme-toggle-btn" onclick="toggleTheme()">
                     <span id="themeIcon">🌙</span>
                 </button>
             </li>
@@ -619,6 +637,55 @@
     {% block content %}{% endblock %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}
+    <script>
+        // Chart color configuration
+        const chartColorSchemes = {
+            light: {
+                actual: '#000000',           // Black
+                realPost: '#4CAF50',         // Green
+                predictedMIF: '#2196F3',     // Blue
+                background: '#FFFFFF'
+            },
+            dark: {
+                actual: '#FFFFFF',           // White
+                realPost: '#81C784',         // Light Green
+                predictedMIF: '#64B5F6',     // Light Blue
+                background: '#1E1E1E'
+            }
+        };
+        
+        // Get current theme
+        function getCurrentTheme() {
+            return document.documentElement.getAttribute('data-theme') || 'light';
+        }
+        
+        // Update chart colors when theme changes
+        window.addEventListener('themeChanged', function(event) {
+            if (window.myChart) {
+                const theme = event.detail.theme;
+                const colors = chartColorSchemes[theme];
+                
+                // Update dataset colors
+                window.myChart.data.datasets[0].borderColor = colors.actual;
+                window.myChart.data.datasets[1].borderColor = colors.realPost;
+                window.myChart.data.datasets[2].borderColor = colors.predictedMIF;
+                
+                // Update text colors
+                const textColor = theme === 'dark' ? '#FFFFFF' : '#000000';
+                window.myChart.options.plugins.legend.labels.color = textColor;
+                window.myChart.options.scales.y.ticks.color = textColor;
+                window.myChart.options.scales.x.ticks.color = textColor;
+                
+                // Update grid colors
+                const gridColor = theme === 'dark' ? '#444444' : '#EEEEEE';
+                window.myChart.options.scales.y.grid.color = gridColor;
+                window.myChart.options.scales.x.grid.color = gridColor;
+                
+                window.myChart.update();
+            }
+        });
+    </script>
+
     <script>
         // Initialize theme on page load
         document.addEventListener('DOMContentLoaded', function() {
@@ -638,18 +705,23 @@
         function applyTheme(theme) {
             const body = document.body;
             const icon = document.getElementById('themeIcon');
-            
+
             // Prevent transition flash on initial load
             if (!body.classList.contains('dark-mode') && !body.classList.contains('light-mode')) {
                 body.classList.add('no-transition');
             }
-            
+
             body.classList.remove('dark-mode', 'light-mode');
             body.classList.add(theme);
-            
-            // Update icon
-            icon.textContent = theme === 'dark-mode' ? '🌙' : '☀️';
-            
+
+            // Keep <html data-theme> and icon in sync with the active theme
+            const shortTheme = theme === 'dark-mode' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', shortTheme);
+            if (icon) icon.textContent = theme === 'dark-mode' ? '🌙' : '☀️';
+
+            // Let the chart (and anything else) react to the theme change
+            window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: shortTheme } }));
+
             // Remove no-transition class after applying theme
             setTimeout(() => {
                 body.classList.remove('no-transition');

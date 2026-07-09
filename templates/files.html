@@ -414,8 +414,8 @@
 <div class="files-container">
     <!-- PAGE HEADER -->
     <div class="page-header">
-        <h1>📁 File Management</h1>
-        <p>Upload and manage your data files for Market Referential</p>
+        <h1 data-i18n="files.title">📁 File Management</h1>
+        <p data-i18n="files.subtitle">Upload and manage your data files for Market Referential</p>
     </div>
 
     <!-- ALERTS -->
@@ -425,35 +425,35 @@
 
     <!-- FILE STATUS PANEL -->
     <div class="file-status-panel">
-        <div class="panel-heading">📊 Current Files Status</div>
+        <div class="panel-heading" data-i18n="files.current_files">📊 Current Files Status</div>
         
         <div id="fileStatusContainer">
             <div style="text-align: center; color: var(--text-muted); padding: 20px;">
                 <div class="loading-spinner"></div>
-                Loading file information...
+                <span data-i18n="files.loading">Loading file information...</span>
             </div>
         </div>
     </div>
 
     <!-- UPLOAD PANEL -->
     <div class="upload-panel">
-        <div class="panel-heading">📤 Upload New File</div>
+        <div class="panel-heading" data-i18n="files.upload_new">📤 Upload New File</div>
         
         <form id="uploadForm" class="upload-form">
             <div class="form-group">
-                <label class="form-label">Select File Type</label>
+                <label class="form-label" data-i18n="files.select_file_type">Select File Type</label>
                 <select id="fileType" class="form-select" required>
-                    <option value="">-- Choose file type --</option>
-                    <option value="cagr">CAGR Mapper</option>
-                    <option value="market">Market Size</option>
+                    <option value="" data-i18n="files.choose_file_type">-- Choose file type --</option>
+                    <option value="cagr" data-i18n="files.cagr_mapper">CAGR Mapper</option>
+                    <option value="market" data-i18n="files.market_size">Market Size</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label class="form-label">Choose File</label>
+                <label class="form-label" data-i18n="files.choose_file">Choose File</label>
                 <div class="file-input-wrapper">
                     <label class="file-input-label" id="fileInputLabel" for="fileInput">
-                        <span>📎 Click to select or drag & drop your file here</span>
+                        <span data-i18n="files.drag_drop">📎 Click to select or drag & drop your file here</span>
                     </label>
                     <input type="file" id="fileInput" accept=".xlsx,.xls" required>
                 </div>
@@ -465,26 +465,26 @@
 
 
             <div class="validation-info">
-                <h4>Required Columns</h4>
+                <h4 data-i18n="files.required_columns">Required Columns</h4>
                 <div id="requiredColumns">
-                    <p style="color: var(--text-muted); margin: 0;">Select a file type to see required columns</p>
+                    <p style="color: var(--text-muted); margin: 0;" data-i18n="files.select_file_type_columns">Select a file type to see required columns</p>
                 </div>
             </div>
 
-            <button type="submit" class="btn-upload" id="uploadBtn">Upload & Validate</button>
+            <button type="submit" class="btn-upload" id="uploadBtn" data-i18n="files.upload_validate">Upload & Validate</button>
         </form>
     </div>
 
     <!-- CUSTOM CAGR PANEL -->
     <div class="upload-panel">
-        <div class="panel-heading">⚙️ Custom CAGR Configuration</div>
+        <div class="panel-heading" data-i18n="files.custom_cagr">⚙️ Custom CAGR Configuration</div>
         
         <form id="customCagrForm" class="upload-form">
             <div class="form-group">
-                <label class="form-label">Upload Custom CAGR File</label>
+                <label class="form-label" data-i18n="files.upload_custom_cagr">Upload Custom CAGR File</label>
                 <div class="file-input-wrapper">
                     <label class="file-input-label" id="customCagrInputLabel" for="customCagrInput">
-                        <span>📎 Click to select or drag & drop your file here</span>
+                        <span data-i18n="files.drag_drop">📎 Click to select or drag & drop your file here</span>
                     </label>
                     <input type="file" id="customCagrInput" accept=".xlsx,.xls,.csv" required>
                 </div>
@@ -495,26 +495,26 @@
             </div>
 
             <div class="validation-info">
-                <h4>Required Format</h4>
+                <h4 data-i18n="files.required_format">Required Format</h4>
                 <p style="color: var(--text-muted); margin: 0;">
-                    <strong>Columns:</strong> <code>Offer</code>, <code>CAGR</code>
+                    <strong data-i18n="files.columns_label">Columns:</strong> <code>Offer</code>, <code>CAGR</code>
                 </p>
                 <p style="color: var(--text-muted); margin: 4px 0 0 0; font-size: 0.75rem;">
-                    CAGR values should be decimal (e.g., 0.05 for 5%) or percentage (e.g., 5%)
+                    <span data-i18n="files.custom_cagr_format">CAGR values should be decimal (e.g., 0.05 for 5%) or percentage (e.g., 5%)</span>
                 </p>
             </div>
 
-            <button type="submit" class="btn-upload" id="customCagrUploadBtn">Upload Custom CAGR</button>
+            <button type="submit" class="btn-upload" id="customCagrUploadBtn" data-i18n="files.upload_custom_cagr_btn">Upload Custom CAGR</button>
         </form>
     </div>
 
     <!-- CUSTOM CAGR STATUS -->
     <div class="file-status-panel">
-        <div class="panel-heading">📊 Custom CAGR Status</div>
+        <div class="panel-heading" data-i18n="files.custom_cagr_status">📊 Custom CAGR Status</div>
         <div id="customCagrStatusContainer">
             <div style="text-align: center; color: var(--text-muted); padding: 20px;">
                 <div class="loading-spinner"></div>
-                Loading custom CAGR status...
+                <span data-i18n="files.loading_custom_cagr">Loading custom CAGR status...</span>
             </div>
         </div>
     </div>
@@ -523,12 +523,12 @@
 
     <!-- VERSION HISTORY PANEL -->
     <div class="history-panel">
-        <div class="panel-heading">📜 Version History</div>
+        <div class="panel-heading" data-i18n="files.version_history">📜 Version History</div>
         
         <div id="historyContainer">
             <div style="text-align: center; color: var(--text-muted); padding: 20px;">
                 <div class="loading-spinner"></div>
-                Loading version history...
+                <span data-i18n="files.loading_history">Loading version history...</span>
             </div>
         </div>
     </div>
@@ -924,10 +924,55 @@ function triggerFileInput(fileType) {
     fileInput.click();
 }
 
+// ── LANGUAGE SUPPORT ──────────────────────────────────────────────────────────
+let currentLanguage = localStorage.getItem('language') || 'en';
+let translations = {};
+
+async function loadTranslations(language) {
+    try {
+        const response = await fetch(`/api/translations/${language}`);
+        translations = await response.json();
+        currentLanguage = language;
+    } catch (error) {
+        console.error('Error loading translations:', error);
+    }
+}
+
+function t(path) {
+    const keys = path.split('.');
+    let value = translations;
+    for (const key of keys) {
+        if (value && typeof value === 'object' && key in value) {
+            value = value[key];
+        } else {
+            return path;
+        }
+    }
+    return value || path;
+}
+
+function updatePageLanguage() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+    });
+}
+
 // ── Initialize ─────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
     loadFileStatus();
     loadVersionHistory();
+
+    await loadTranslations(currentLanguage);
+    updatePageLanguage();
+
+    // Listen for language changes from the settings page
+    window.addEventListener('languageChanged', async (e) => {
+        await loadTranslations(e.detail.language);
+        updatePageLanguage();
+    });
 });
 </script>
 {% endblock %}

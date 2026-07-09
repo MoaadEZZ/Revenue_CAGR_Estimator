@@ -171,6 +171,25 @@ def load_all_data():
         offer_to_domain = dict(zip(df_prod['Offer_Clean'], df_prod[domain_col])) \
             if domain_col else {}
 
+        # ── Uniqueness check: an Offer must map to exactly 1 Domain and ──
+        # ── exactly 1 Business_Line (sub-business line) to be safely      ──
+        # ── split into Rep-Codes for the "By Rep_code" aggregation level. ──
+        def _offers_with_multiple_values(col_name):
+            if not col_name:
+                return []
+            tmp = df_prod[['Offer_Clean', col_name]].copy()
+            tmp[col_name] = tmp[col_name].astype(str).str.strip()
+            tmp = tmp[~tmp[col_name].isin(['', 'nan', 'None', '---'])]
+            counts = tmp.groupby('Offer_Clean')[col_name].nunique()
+            return sorted(counts[counts > 1].index.tolist())
+
+        multi_domain_offers = _offers_with_multiple_values(domain_col)
+        multi_bl_offers     = _offers_with_multiple_values(business_line_col)
+        if multi_domain_offers:
+            print(f"  ⚠ {len(multi_domain_offers)} offers have more than one Domain")
+        if multi_bl_offers:
+            print(f"  ⚠ {len(multi_bl_offers)} offers have more than one Business_Line")
+
         # ── CAGR mapper ──
         print(f"\n📋 Loading CAGR Mapper...")
         df_mapper = load_cagr_mapper()
@@ -261,8 +280,10 @@ def load_all_data():
             if col in df.columns:
                 df[col] = df[col].fillna(0)
 
-        df.attrs['detailed_revenue'] = df_rev_detailed
-        df.attrs['missing_offers']   = missing_offers
+        df.attrs['detailed_revenue']     = df_rev_detailed
+        df.attrs['missing_offers']       = missing_offers
+        df.attrs['multi_domain_offers']  = multi_domain_offers
+        df.attrs['multi_bl_offers']      = multi_bl_offers
 
         # Store CVP options for the frontend
         # ── CVP OPTIONS: Two sections (with offers / without offers) ──
@@ -365,6 +386,21 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
         if len(df) == 0:
             return {'error': 'No data found for selected criteria.'}
 
+        # ── Rep-Code precondition: each Offer must map to exactly 1 Domain ──
+        # ── and exactly 1 Sub-Business Line before it can be safely split  ──
+        # ── into Rep-Codes (categorical columns represent a hierarchy).    ──
+        if aggregation_level == 'rep_code':
+            multi_domain = set(df_all_data.attrs.get('multi_domain_offers', []))
+            multi_bl     = set(df_all_data.attrs.get('multi_bl_offers', []))
+            offending    = sorted((multi_domain | multi_bl) & set(df['Offer'].unique()))
+            if offending:
+                preview = ', '.join(offending[:10]) + ('…' if len(offending) > 10 else '')
+                return {'error': (
+                    f"Cannot aggregate by Rep-Code: {len(offending)} offer(s) have more than "
+                    f"one Domain or Sub-Business Line, so they cannot be safely split by "
+                    f"Rep-Code: {preview}"
+                )}
+
         # Re-aggregate if needed
         if aggregation_level in ['product', 'rep_code'] and \
                 'detailed_revenue' in df_all_data.attrs:
@@ -409,6 +445,7 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
 
         results_list = []
         cagr_values  = []
+        _cagr_seen_offers = set()
 
         tot_actual    = {y: 0.0 for y in all_display_years}
         tot_real_post = {y: 0.0 for y in all_display_years}
@@ -451,7 +488,12 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             else:
                 active_cagr = mif_cagr
 
-            cagr_values.append(active_cagr)
+            if aggregation_level == 'rep_code':
+                if offer not in _cagr_seen_offers:
+                    _cagr_seen_offers.add(offer)
+                    cagr_values.append(active_cagr)
+            else:
+                cagr_values.append(active_cagr)
 
             # Actual revenues
             actual = {}
@@ -530,6 +572,39 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
                             has_real_post[y]  = True
 
             results_list.append(result_row)
+
+        # ── Rep-Code → Offer roll-up ──────────────────────────────────────
+        # CAGR is computed and applied at Rep-Code granularity (each
+        # Rep-Code keeps its own seed-year revenue while inheriting its
+        # parent Offer's Sub-segment 2 / CAGR, since Rep-Codes belong to a
+        # single Offer). For visualization we then sum the Rep-Codes back
+        # up, grouped by Offer, so the table/chart show one row per Offer.
+        if aggregation_level == 'rep_code' and results_list:
+            year_col_prefixes = ('Revenue_', 'Real_', 'Predicted_MIF_', 'Predicted_BL_', 'Predicted_')
+            grouped = OrderedDict()
+            for r in results_list:
+                offer = r['Offer']
+                if offer not in grouped:
+                    agg = OrderedDict()
+                    for k, v in r.items():
+                        if k == 'Rep_code':
+                            continue
+                        elif any(k.startswith(p) for p in year_col_prefixes):
+                            agg[k] = 0.0
+                        else:
+                            agg[k] = v  # categorical / CAGR% cols identical across an Offer's Rep-Codes
+                    grouped[offer] = agg
+                for k, v in r.items():
+                    if any(k.startswith(p) for p in year_col_prefixes):
+                        grouped[offer][k] += float(str(v).replace(',', '')) if v not in (None, '') else 0.0
+
+            # Re-format the summed year columns back to the "x,xxx.xx" string style
+            for offer, agg in grouped.items():
+                for k in list(agg.keys()):
+                    if any(k.startswith(p) for p in year_col_prefixes):
+                        agg[k] = f"{agg[k]:,.2f}"
+
+            results_list = list(grouped.values())
 
         results_list = sorted(results_list, key=lambda x: x['Offer'])
 

@@ -6,16 +6,16 @@
 
 <div class="settings-container">
     <div class="settings-header">
-        <h1 id="settingsTitle">Settings</h1>
-        <p id="settingsSubtitle">Customize your experience</p>
+        <h1 id="settingsTitle" data-i18n="settings.title">Settings</h1>
+        <p id="settingsSubtitle" data-i18n="settings.subtitle">Customize your experience</p>
     </div>
 
     <div class="settings-grid">
         <!-- Language Setting -->
         <div class="settings-card">
             <div class="settings-card-header">
-                <h3 id="languageLabel">Language</h3>
-                <p id="languageDesc">Choose your preferred language</p>
+                <h3 id="languageLabel" data-i18n="settings.language">Language</h3>
+                <p id="languageDesc" data-i18n="settings.language_desc">Choose your preferred language</p>
             </div>
             <div class="settings-card-body">
                 <div class="language-options">
@@ -38,8 +38,8 @@
         <!-- Theme Setting -->
         <div class="settings-card">
             <div class="settings-card-header">
-                <h3 id="themeLabel">Theme</h3>
-                <p id="themeDesc">Choose your preferred color scheme</p>
+                <h3 id="themeLabel" data-i18n="settings.theme">Theme</h3>
+                <p id="themeDesc" data-i18n="settings.theme_desc">Choose your preferred color scheme</p>
             </div>
             <div class="settings-card-body">
                 <div class="theme-options">
@@ -47,13 +47,13 @@
                         <input type="radio" name="theme" value="dark-mode" checked 
                                onchange="changeTheme('dark-mode')">
                         <span class="option-icon">🌙</span>
-                        <span class="option-text" id="darkModeText">Dark Mode</span>
+                        <span class="option-text" id="darkModeText" data-i18n="settings.dark_mode">Dark Mode</span>
                     </label>
                     <label class="theme-option" id="themeLightLabel">
                         <input type="radio" name="theme" value="light-mode" 
                                onchange="changeTheme('light-mode')">
                         <span class="option-icon">☀️</span>
-                        <span class="option-text" id="lightModeText">Light Mode</span>
+                        <span class="option-text" id="lightModeText" data-i18n="settings.light_mode">Light Mode</span>
                     </label>
                 </div>
             </div>
@@ -61,7 +61,7 @@
     </div>
 
     <div class="settings-footer">
-        <p id="settingsSaved" style="color: var(--accent-orange); display: none;">✓ Settings saved</p>
+        <p id="settingsSaved" data-i18n="settings.saved" style="color: var(--accent-orange); display: none;">✓ Settings saved</p>
     </div>
 </div>
 
@@ -195,7 +195,7 @@
     // Load translations on page load
     document.addEventListener('DOMContentLoaded', async function() {
         await loadTranslations(currentLanguage);
-        updateSettingsUI();
+        updatePageLanguage();
         
         // Set current language radio button
         document.querySelector(`input[name="language"][value="${currentLanguage}"]`).checked = true;
@@ -213,25 +213,39 @@
         }
     }
 
-    function updateSettingsUI() {
-        // Update page titles and labels
-        document.getElementById('settingsTitle').textContent = 
-            translations.settings?.title || 'Settings';
-        document.getElementById('settingsSubtitle').textContent = 
-            'Customize your experience';
-        document.getElementById('languageLabel').textContent = 
-            translations.settings?.language || 'Language';
-        document.getElementById('themeLabel').textContent = 
-            translations.settings?.theme || 'Theme';
-        document.getElementById('darkModeText').textContent = 
-            translations.settings?.dark_mode || 'Dark Mode';
-        document.getElementById('lightModeText').textContent = 
-            translations.settings?.light_mode || 'Light Mode';
+    function t(path) {
+        /**
+         * Get translation by dot notation path
+         * Example: t('settings.title') returns "Settings"
+         */
+        const keys = path.split('.');
+        let value = translations;
+
+        for (const key of keys) {
+            if (value && typeof value === 'object' && key in value) {
+                value = value[key];
+            } else {
+                return path; // Return path if translation not found
+            }
+        }
+
+        return value || path;
+    }
+
+    function updatePageLanguage() {
+        // Update every element (and placeholder) tagged with data-i18n,
+        // covering all labels on this page — not just a hand-picked subset.
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            el.textContent = t(el.getAttribute('data-i18n'));
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+        });
     }
 
     async function changeLanguage(language) {
         await loadTranslations(language);
-        updateSettingsUI();
+        updatePageLanguage();
         
         // Update active state
         document.querySelectorAll('.language-option').forEach(el => el.classList.remove('active'));

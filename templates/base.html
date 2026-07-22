@@ -636,7 +636,6 @@
     <div id="warningsContainer" class="warnings-sticky-container"></div>
     {% block content %}{% endblock %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    {% block extra_js %}{% endblock %}
     <script>
         // Chart color configuration
         const chartColorSchemes = {
@@ -644,13 +643,15 @@
                 actual: '#000000',           // Black
                 realPost: '#4CAF50',         // Green
                 predictedMIF: '#2196F3',     // Blue
-                background: '#FFFFFF'
+                background: '#FFFFFF',
+                predictedBL: '#9C27B0' 
             },
             dark: {
                 actual: '#FFFFFF',           // White
                 realPost: '#81C784',         // Light Green
                 predictedMIF: '#64B5F6',     // Light Blue
-                background: '#1E1E1E'
+                background: '#1E1E1E', 
+                predictedBL: '#9C27B0' 
             }
         };
         
@@ -660,30 +661,77 @@
         }
         
         // Update chart colors when theme changes
+        // ── UNIFIED THEME CHANGE HANDLER ──────────────────────────────────────────
+
         window.addEventListener('themeChanged', function(event) {
+            const theme = event.detail.theme; // 'dark' or 'light'
+                        
+            // Update the revenue chart (stored as 'revenueChart' in index.html)
+            if (typeof revenueChart !== 'undefined' && revenueChart) {
+                updateChartColors(revenueChart, theme);
+            }
+            
+            // Update any other charts if they exist
             if (window.myChart) {
-                const theme = event.detail.theme;
-                const colors = chartColorSchemes[theme];
-                
-                // Update dataset colors
-                window.myChart.data.datasets[0].borderColor = colors.actual;
-                window.myChart.data.datasets[1].borderColor = colors.realPost;
-                window.myChart.data.datasets[2].borderColor = colors.predictedMIF;
-                
-                // Update text colors
-                const textColor = theme === 'dark' ? '#FFFFFF' : '#000000';
-                window.myChart.options.plugins.legend.labels.color = textColor;
-                window.myChart.options.scales.y.ticks.color = textColor;
-                window.myChart.options.scales.x.ticks.color = textColor;
-                
-                // Update grid colors
-                const gridColor = theme === 'dark' ? '#444444' : '#EEEEEE';
-                window.myChart.options.scales.y.grid.color = gridColor;
-                window.myChart.options.scales.x.grid.color = gridColor;
-                
-                window.myChart.update();
+                updateChartColors(window.myChart, theme);
             }
         });
+
+        function updateChartColors(chart, theme) {
+            if (!chart || !chart.data || !chart.data.datasets) return;
+            
+            const colors = chartColorSchemes[theme];
+
+            const actual_gauge_definer = document.getElementById("Actual_gauge_definer");
+            const real_gauge_definer = document.getElementById("Real_gauge_definer");
+            const pred_mif_gauge_definer = document.getElementById("prediction_MIF_gauge_definer");
+            const pred_bl_gauge_definer = document.getElementById("prediction_BL_gauge_definer");
+            if (actual_gauge_definer) actual_gauge_definer.style.backgroundColor = colors["actual"];
+            if (real_gauge_definer) real_gauge_definer.style.backgroundColor = colors["realPost"];
+            if (pred_mif_gauge_definer) pred_mif_gauge_definer.style.backgroundColor = colors["predictedMIF"];
+            if (pred_bl_gauge_definer) pred_bl_gauge_definer.style.backgroundColor = colors["predictedBL"];
+            
+            // Update each dataset's colors
+            chart.data.datasets.forEach((dataset, index) => {
+                if (dataset.label === 'Actual') {
+                    dataset.borderColor = colors.actual;
+                    dataset.backgroundColor = colors.actual + '22';
+                    dataset.pointBackgroundColor = colors.actual;
+                } else if (dataset.label === 'Real (post pred-start)') {
+                    dataset.borderColor = colors.realPost;
+                    dataset.backgroundColor = colors.realPost + '15';
+                    dataset.pointBackgroundColor = colors.realPost;
+                } else if (dataset.label === 'Predicted (MIF)') {
+                    dataset.borderColor = colors.predictedMIF;
+                    dataset.backgroundColor = colors.predictedMIF + '15';
+                    dataset.pointBackgroundColor = colors.predictedMIF;
+                }
+                else if (dataset.label === 'Predicted (BL)') {
+                    console.log(colors.predictedBL);
+                    dataset.borderColor = colors.predictedBL;
+                    dataset.backgroundColor = colors.predictedBL + '15';
+                    dataset.pointBackgroundColor = colors.predictedBL;
+                }
+            });
+            
+            // Update text and grid colors
+            const textColor = theme === 'dark' ? '#FFFFFF' : '#000000';
+            const gridColor = theme === 'dark' ? '#444444' : '#EEEEEE';
+            
+            if (chart.options.scales) {
+                if (chart.options.scales.x) {
+                    chart.options.scales.x.ticks.color = textColor;
+                    chart.options.scales.x.grid.color = gridColor;
+                }
+                if (chart.options.scales.y) {
+                    chart.options.scales.y.ticks.color = textColor;
+                    chart.options.scales.y.grid.color = gridColor;
+                }
+            }
+            
+            chart.update();
+        }
+
     </script>
 
     <script>
@@ -720,6 +768,7 @@
             if (icon) icon.textContent = theme === 'dark-mode' ? '🌙' : '☀️';
 
             // Let the chart (and anything else) react to the theme change
+            console.log("te");
             window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: shortTheme } }));
 
             // Remove no-transition class after applying theme
@@ -728,6 +777,29 @@
             }, 10);
         }
     </script>
-
+    {% block extra_js %}{% endblock %}
+    <script>
+        function updatePageLanguage() {
+            // Update all elements with data-i18n attribute
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                el.textContent = t(key);
+            });
+            
+            // Update all placeholders with data-i18n-placeholder attribute
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                el.placeholder = t(key);
+            });
+        }
+        (async () => {
+            await loadTranslations(currentLanguage);
+            updatePageLanguage();
+        })();
+        window.addEventListener('languageChanged', async (e) => {
+            await loadTranslations(e.detail.language);
+            updatePageLanguage();
+        });
+    </script>
 </body>
 </html>

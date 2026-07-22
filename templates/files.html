@@ -444,8 +444,11 @@
                 <label class="form-label" data-i18n="files.select_file_type">Select File Type</label>
                 <select id="fileType" class="form-select" required>
                     <option value="" data-i18n="files.choose_file_type">-- Choose file type --</option>
-                    <option value="cagr" data-i18n="files.cagr_mapper">CAGR Mapper</option>
+                    <option value="cagr_svp" data-i18n="files.cagr_svp">CAGR SVP</option>
                     <option value="market" data-i18n="files.market_size">Market Size</option>
+                    <option value="all_products" data-i18n="files.all_products">All Products Requested</option>
+                    <option value="data_fr" data-i18n="files.data_fr">Data (France)</option>
+                    <option value="data_intl" data-i18n="files.data_intl">Data (International)</option>
                 </select>
             </div>
 
@@ -683,15 +686,30 @@ function clearFileSelection() {
 }
 // ── Configuration ──────────────────────────────────────────────────────────
 const FILE_TYPES = {
-    cagr: {
-        name: 'CAGR Mapper',
-        requiredColumns: ['catégorie', 'Sub-segment 2', 'Segment', 'pr_offer'],
-        description: 'Maps offers to categories and segments'
+    cagr_svp: {
+        name: 'CAGR SVP',
+        requiredColumns: ['catégorie', 'pr_offer', 'pr_offer_line', 'pr_business_line'],
+        description: 'Multi-sheet workbook — category hierarchy used (with All Products) to build the Rep_Code → catégorie mapping'
     },
     market: {
         name: 'Market Size',
-        requiredColumns: ['Year', 'Million EUR', 'Segment', 'Sub-segment 2'],
-        description: 'Market sizing data with forecasts'
+        requiredColumns: ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3', 'Million EUR', 'Year', 'ID'],
+        description: 'Market sizing data with forecasts, keyed by ID (matched to catégorie semantically)'
+    },
+    all_products: {
+        name: 'All Products Requested',
+        requiredColumns: ['rep_code', 'business_line', 'offer_line', 'offer', 'Strategic (for SVPs)', 'CVP'],
+        description: 'Rep_Code dimension table used to assign each Rep_Code its catégorie'
+    },
+    data_fr: {
+        name: 'Data (France)',
+        requiredColumns: ['Offer', 'Period', '_S_Revenue_actual'],
+        description: 'France revenue data — combined with International into data.xlsx (Region = FR)'
+    },
+    data_intl: {
+        name: 'Data (International)',
+        requiredColumns: ['Offer', 'Period', '_S_Revenue_actual'],
+        description: 'International revenue data — combined with France into data.xlsx (Region = INT)'
     }
 };
 

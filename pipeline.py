@@ -7,15 +7,45 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from collections import OrderedDict
 
+from mapping import (
+    DATA_CAGR_SVP,
+    DATA_MARKET_SIZE,
+    DATA_ALL_PRODUCTS,
+    build_category_mapper,
+)
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 
-DATA_CAGR_MAPPER  = os.path.join(DATA_DIR, "CAGR Mapper.xlsx")
-DATA_MARKET_SIZE  = os.path.join(DATA_DIR, "Market Sizing - 3Q 2025.xlsx")
-DATA_ALL_PRODUCTS = os.path.join(DATA_DIR, "All products requested.xlsx")
-DATA_REVENUE      = os.path.join(DATA_DIR, "data.xlsx") \
-                    if os.path.exists(os.path.join(DATA_DIR, "data.xlsx")) else None
+# Revenue is now uploaded as two regional files (France / International)
+# and combined into a single data.xlsx with a Region column — the format
+# the rest of the pipeline expects.
+DATA_REVENUE_FR   = os.path.join(DATA_DIR, "data_france.xlsx")
+DATA_REVENUE_INTL = os.path.join(DATA_DIR, "data_international.xlsx")
+DATA_REVENUE      = os.path.join(DATA_DIR, "data.xlsx")
+
+
+def combine_revenue_files():
+    """Combine the France + International revenue uploads into the single
+    data.xlsx (with a Region column) that the rest of the pipeline expects.
+    Safe to call any time either regional file changes."""
+    frames = []
+    if os.path.exists(DATA_REVENUE_FR):
+        df_fr = pd.read_excel(DATA_REVENUE_FR)
+        df_fr['Region'] = 'FR'
+        frames.append(df_fr)
+    if os.path.exists(DATA_REVENUE_INTL):
+        df_intl = pd.read_excel(DATA_REVENUE_INTL)
+        df_intl['Region'] = 'INT'
+        frames.append(df_intl)
+    if not frames:
+        print("⚠ No regional revenue files found — data.xlsx not (re)generated")
+        return None
+    df_combined = pd.concat(frames, ignore_index=True)
+    df_combined.to_excel(DATA_REVENUE, index=False)
+    print(f"✓ Combined revenue files → {DATA_REVENUE} ({len(df_combined)} rows)")
+    return df_combined
 
 
 # ─────────────────────────────────────────────
@@ -98,26 +128,28 @@ def load_market_size_years():
         return []
 
 
-def load_cagr_mapper():
+def load_category_mapper(force_rebuild=False):
+    """Rep_Code-level category mapper: Rep_Code / catégorie / ID, built by
+    combining the hierarchical Rep_Code→catégorie matching (CAGR SVP + All
+    Products) with the semantic catégorie→ID matching (Market Size). See
+    mapping.py. Returned columns are renamed to match this pipeline's
+    conventions: Market_Category (was catégorie), Rep_Code, ID."""
     try:
-        df = pd.read_excel(DATA_CAGR_MAPPER)
-        df.columns = df.columns.str.strip()
-        required = ['catégorie', 'Sub-segment 2', 'Segment', 'pr_offer']
-        if not all(c in df.columns for c in ["Sub-segment 2", "pr_offer"]):
+        mapper = build_category_mapper(force_rebuild=force_rebuild)
+        if mapper is None or mapper.empty:
             return None
-        df = df[required].copy()
-        df = df.dropna(subset=['pr_offer'])
-        df = df[df['pr_offer'].apply(lambda x: isinstance(x, str))]
-        for col in required:
-            df[col] = df[col].astype(str).str.rstrip()
-        if "." in df["pr_offer"].iloc[0]:
-            df["pr_offer"] = df["pr_offer"].str.split(".", n=1, expand=True)[1]
-        df = df.rename(columns={'pr_offer': 'Offer', 'catégorie': 'Market_Category'})
-        df = df.drop_duplicates(subset=['Offer'], keep='first')
-        print(f"✓ CAGR Mapper: {len(df)} offers")
-        return df
+        mapper = mapper.rename(columns={'catégorie': 'Market_Category'})
+        mapper['Market_Category'] = mapper['Market_Category'].fillna('').astype(str).str.rstrip()
+        mapper['ID']              = mapper['ID'].fillna('').astype(str).str.rstrip()
+        for seg_col in ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3']:
+            if seg_col in mapper.columns:
+                mapper[seg_col] = mapper[seg_col].fillna('---').astype(str).str.rstrip()
+        print(f"✓ Category Mapper: {len(mapper)} Rep_Codes "
+              f"({(mapper['Market_Category'] != '').sum()} with catégorie, "
+              f"{(mapper['ID'] != '').sum()} with ID)")
+        return mapper
     except Exception as e:
-        print(f"Error loading CAGR mapper: {e}")
+        print(f"Error loading category mapper: {e}")
         return None
 
 
@@ -138,6 +170,12 @@ def load_all_data():
             df_prod['Offer_Clean'] = df_prod['Offer'].str.split('.', n=1, expand=True)[1].str.strip()
         else:
             df_prod['Offer_Clean'] = df_prod['Offer']
+
+        # Normalize the Rep_Code column name (used to roll the new
+        # Rep_Code-level category mapper up to Offer level below).
+        rep_code_col = next((c for c in df_prod.columns if c.strip().lower() == 'rep_code'), None)
+        if rep_code_col and rep_code_col != 'Rep_Code':
+            df_prod = df_prod.rename(columns={rep_code_col: 'Rep_Code'})
 
         # SVP
         svp_col = None
@@ -190,12 +228,53 @@ def load_all_data():
         if multi_bl_offers:
             print(f"  ⚠ {len(multi_bl_offers)} offers have more than one Business_Line")
 
-        # ── CAGR mapper ──
-        print(f"\n📋 Loading CAGR Mapper...")
-        df_mapper = load_cagr_mapper()
-        if df_mapper is None:
-            print(f"  ✗ CAGR Mapper failed to load"); return None
-        print(f"  ✓ Loaded {len(df_mapper)} offers")
+        # ── Category mapper (Rep_Code → catégorie → ID) ──
+        # Built from CAGR SVP (hierarchical match, test1.py idea) + Market
+        # Size (semantic match, test2.py idea). See mapping.py.
+        print(f"\n📋 Loading Category Mapper...")
+        df_repcode_mapper = load_category_mapper()
+        if df_repcode_mapper is None:
+            print(f"  ✗ Category mapper failed to load"); return None
+        print(f"  ✓ Loaded {len(df_repcode_mapper)} Rep_Codes")
+
+        # Roll the Rep_Code-level mapper up to Offer level (first non-empty
+        # catégorie/ID per Offer wins) so the existing Offer-level
+        # pivot/merge machinery below keeps working. Rep_Code-level detail
+        # itself is only needed for revenue splitting, which already
+        # happens separately via detailed_revenue in resultat_data().
+        if 'Rep_Code' in df_prod.columns:
+            df_repcode_mapper = df_repcode_mapper.merge(
+                df_prod[['Rep_Code', 'Offer_Clean']].drop_duplicates(subset=['Rep_Code']),
+                on='Rep_Code', how='left')
+        else:
+            df_repcode_mapper['Offer_Clean'] = None
+            print("  ⚠ All products requested.xlsx has no Rep_Code column — "
+                  "cannot roll the category mapper up to Offer level")
+
+        def _first_nonempty(s):
+            vals = [v for v in s if v not in (None, '', 'nan', '---')]
+            return vals[0] if vals else ''
+
+        # Roll up every column the mapper produced (catégorie/ID plus the
+        # Segment / Sub-segment 1-3 hierarchy), not just Market_Category
+        # and ID — previously the .agg() only named those two, which
+        # silently dropped the segment columns even when mapping.py had
+        # already computed them.
+        segment_cols = [c for c in ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3']
+                        if c in df_repcode_mapper.columns]
+        agg_spec = {'Market_Category': ('Market_Category', _first_nonempty),
+                    'ID': ('ID', _first_nonempty)}
+        for col in segment_cols:
+            agg_spec[col] = (col, _first_nonempty)
+
+        df_mapper = (
+            df_repcode_mapper.dropna(subset=['Offer_Clean'])
+            .groupby('Offer_Clean', as_index=False)
+            .agg(**agg_spec)
+            .rename(columns={'Offer_Clean': 'Offer'})
+        )
+        print(f"  ✓ Rolled up to {len(df_mapper)} offers "
+              f"(segment columns carried through: {segment_cols or 'none'})")
 
         df_mapper['SVP']           = df_mapper['Offer'].map(offer_to_svp).fillna('Unknown')
         df_mapper['CVP']           = df_mapper['Offer'].map(offer_to_cvp).fillna('Unknown')
@@ -203,23 +282,26 @@ def load_all_data():
         df_mapper['Domain']        = df_mapper['Offer'].map(offer_to_domain).fillna('---')
         print(f"  ✓ Added SVP, CVP, Business_Line, Domain to mapper")
 
-        # ── Market size ──
+        # ── Market size (pivoted on ID, matched to catégorie semantically) ──
         print(f"\n📈 Loading Market Size...")
         df_ms = pd.read_excel(DATA_MARKET_SIZE,
                               sheet_name="DATA BASE MARKET FORECAST", skiprows=5)
-        df_ms = df_ms[["Segment","Sub-segment 2","Year","Million EUR"]].copy()
-        df_ms["Sub-segment 2"] = df_ms["Sub-segment 2"].astype(str).str.rstrip()
-        df_ms = df_ms.dropna(subset=["Sub-segment 2","Year","Million EUR"])
-        df_ms = df_ms.groupby(["Sub-segment 2","Year"], as_index=False).agg(
-            {"Million EUR":"sum","Segment":"first"})
+        id_col = next((c for c in df_ms.columns if str(c).strip().lower() == 'id'), None)
+        if id_col is None:
+            print(f"  ✗ Market Size file has no 'ID' column"); return None
+        df_ms = df_ms.rename(columns={id_col: 'ID'})
+        df_ms = df_ms[["ID","Year","Million EUR"]].copy()
+        df_ms["ID"] = df_ms["ID"].astype(str).str.rstrip()
+        df_ms = df_ms.dropna(subset=["ID","Year","Million EUR"])
+        df_ms = df_ms.groupby(["ID","Year"], as_index=False).agg({"Million EUR":"sum"})
         df_ms['Year'] = df_ms['Year'].astype(int)
         df_ms_pivot = df_ms.pivot_table(
-            index=["Sub-segment 2","Segment"], columns="Year",
+            index=["ID"], columns="Year",
             values="Million EUR", fill_value=0).reset_index()
         df_ms_pivot.columns = [
             f"Million EUR_{c}" if isinstance(c, int) else c
             for c in df_ms_pivot.columns]
-        print(f"  ✓ Pivoted to {len(df_ms_pivot)} sub-segments")
+        print(f"  ✓ Pivoted to {len(df_ms_pivot)} market IDs")
 
         # ── Revenue ──
         print(f"\n💰 Loading Revenue data...")
@@ -258,11 +340,12 @@ def load_all_data():
         # ── Merge ──
         print(f"\n🔗 Merging data...")
         df = df_rev_piv.merge(df_mapper, on='Offer', how='left')
-        missing_offers = df[df['Sub-segment 2'].isna()]['Offer'].tolist()
+        missing_offers = df[df['Market_Category'].isna() | (df['Market_Category'] == '')]['Offer'].tolist()
 
         # Clean categoricals
-        categorical_cols = ['SVP', 'CVP', 'Sub-segment 2', 'Market_Category', 'Segment',
-                            'Business_Line', 'Domain', 'Product', 'Rep_Code']
+        categorical_cols = ['SVP', 'CVP', 'Market_Category', 'ID',
+                            'Business_Line', 'Domain', 'Product', 'Rep_Code',
+                            'Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3']
         for col in categorical_cols:
             if col in df.columns:
                 df[col] = df[col].fillna('---').replace('nan','---')
@@ -275,7 +358,7 @@ def load_all_data():
         for col in revenue_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-        df = df.merge(df_ms_pivot, on='Sub-segment 2', how='left')
+        df = df.merge(df_ms_pivot, on='ID', how='left')
         for col in million_eur_cols:
             if col in df.columns:
                 df[col] = df[col].fillna(0)
@@ -368,15 +451,19 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             if selected_cvps else pd.Series(False, index=df_all_data.index)
         df = df_all_data[svp_mask | cvp_mask].copy()
 
-        # Sub-segment filter
+        # Category-assignment filter: filters on whether a catégorie/ID
+        # was successfully assigned (Segment/Sub-segment 1-3 are now
+        # carried through separately as display-only columns).
         if subseg_filter == 'with_subseg':
-            df = df[df['Sub-segment 2'].notna() &
-                    (df['Sub-segment 2'] != '---') &
-                    (df['Sub-segment 2'] != 'nan')]
+            df = df[df['Market_Category'].notna() &
+                    (df['Market_Category'] != '---') &
+                    (df['Market_Category'] != 'nan') &
+                    (df['Market_Category'] != '')]
         elif subseg_filter == 'no_subseg':
-            df = df[df['Sub-segment 2'].isna() |
-                    (df['Sub-segment 2'] == '---') |
-                    (df['Sub-segment 2'] == 'nan')]
+            df = df[df['Market_Category'].isna() |
+                    (df['Market_Category'] == '---') |
+                    (df['Market_Category'] == 'nan') |
+                    (df['Market_Category'] == '')]
 
         if region == 'France':
             df = df[df['Region'] == 'FR']
@@ -458,14 +545,10 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             offer           = row['Offer']
             market_category = row.get('Market_Category', '---')
             svp             = row.get('SVP', '---')
-            sub2            = row.get('Sub-segment 2', '---')
             business_line   = row.get('Business_Line', '---')
             domain          = row.get('Domain', '---')
             product  = row.get('Product', '---')  if aggregation_level == 'product'  else None
             rep_code = row.get('Rep_code', '---') if aggregation_level == 'rep_code' else None
-
-            if sub2 is None or (isinstance(sub2, float) and np.isnan(sub2)):
-                sub2 = '---'
 
             sc = f"Million EUR_{cagr_start_year}"
             ec = f"Million EUR_{cagr_end_year}"
@@ -515,7 +598,6 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             result_row['Offer']           = offer
             result_row['SVP']             = svp
             result_row['CVP']             = row.get('CVP', '---')  # ✅ ADD THIS LINE
-            result_row['Sub-segment 2']   = sub2
             result_row['Market_Category'] = market_category
             result_row['Business_Line']   = business_line
             result_row['Domain']          = domain
@@ -568,6 +650,15 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
 
                     if y > pred_start_year:
                         if act_val is not None:
+                            # Also record this per-offer row's actual value under
+                            # Real_{y} (not just in the tot_real_post aggregate).
+                            # Without this, the per-offer "real/historical" curve
+                            # and kpiSelectedOfferCagrActual (which reads
+                            # Real_{lastYear} per selected row) have no data to
+                            # work with when pred_start_year is set to an old year
+                            # and one/more offers are selected instead of viewing
+                            # the aggregate "Total Revenue by Year" chart.
+                            result_row[f'Real_{y}'] = f"{act_val:,.2f}"
                             tot_real_post[y] += act_val
                             has_real_post[y]  = True
 
@@ -625,17 +716,19 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
                     year_cols.append(f'Predicted_{y}')
 
         if selected_columns is None:
-            selected_columns = ['Offer','SVP','CVP','Sub-segment 2','Market_Category',
+            selected_columns = ['Offer','SVP','CVP','Market_Category',
                                 'BL_CAGR','MIF_CAGR']
+        print(selected_columns)
 
         filtered_column_order = []
-        fixed_cols = ['Offer','SVP','CVP','Sub-segment 2','Market_Category',
-                    'Business_Line','Domain','Product','Rep_code']
+        fixed_cols = ['Offer','SVP','CVP','Market_Category',
+                    'Business_Line','Domain','Product','Rep_code',
+                    'Segment', 'Sub-segment 1', 'Sub-segment 2',
+                    'Sub-segment 3']
 
         for col in fixed_cols:
             if col == 'Offer' or col in selected_columns:
                 filtered_column_order.append(col)
-
 
         if 'BL_CAGR' in selected_columns and use_custom_cagr in ('yes','both'):
             filtered_column_order.append(bl_cagr_col_name)
@@ -644,6 +737,7 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
 
         filtered_column_order.extend(year_cols)
         column_order = filtered_column_order
+
 
         # Filter rows to selected columns
         results_list_filtered = []
@@ -661,7 +755,6 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
         total_row['Offer']           = 'TOTAL'
         total_row['SVP']             = ''
         total_row['CVP']             = ''
-        total_row['Sub-segment 2']   = ''
         total_row['Market_Category'] = ''
         total_row['Business_Line']   = ''
         total_row['Domain']          = ''
@@ -749,7 +842,8 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             'display_end_year'    : display_end_year,
             'pred_start_year'     : pred_start_year,
             'avg_cagr'            : f"{avg_cagr*100:.2f}%",
-            'tot_predicted'       : tot_predicted_mif,
+            'tot_predicted_mif'   : tot_predicted_mif,
+            'tot_predicted_bl'    : tot_predicted_bl,
             'actual_cagr'         : f"{Actual_cagr*100:.2f}%",
             'result_count'        : len(results_list) - 1,
             'chart_labels'        : [str(y) for y in all_display_years],

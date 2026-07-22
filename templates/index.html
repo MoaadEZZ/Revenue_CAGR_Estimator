@@ -65,6 +65,40 @@
         margin-bottom: 16px;
     }
 
+    .color-control {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    .color-control input[type="color"] {
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        padding: 2px;
+        background: transparent;
+    }
+
+  /* ── Chart Legend: force single line ─────────────────────── */
+  #chart-legend,
+  .chart-legend,
+  [id*="legend"],
+  .chartjs-legend ul,
+  .chartjs-legend li {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
 </style>
 {% endblock %}
 
@@ -80,7 +114,7 @@
     <span id="topBarYears" style="display:none"></span>
 </div>
 
-<div class="main-layout" style="position:relative;">
+<div class="main-layout" style="position:relative; height: 1200px;">
 
     <!-- LOADING -->
     <div class="loading-overlay" id="loadingOverlay">
@@ -319,8 +353,20 @@
                                 <input type="checkbox" value="CVP"> <span data-i18n="index.col_cvp">CVP</span>
                             </label>
                             <label class="column-checkbox">
+                                <input type="checkbox" value="Segment">
+                                <span data-i18n="index.col_segment">Segment</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="Sub-segment 1">
+                                <span data-i18n="index.col_subsegment1">Sub-segment 1</span>
+                            </label>
+                            <label class="column-checkbox">
                                 <input type="checkbox" value="Sub-segment 2" checked>
                                 <span data-i18n="index.col_subsegment2">Sub-segment 2</span>
+                            </label>
+                            <label class="column-checkbox">
+                                <input type="checkbox" value="Sub-segment 3">
+                                <span data-i18n="index.col_subsegment3">Sub-segment 3</span>
                             </label>
                             <label class="column-checkbox">
                                 <input type="checkbox" value="Market_Category" checked>
@@ -427,22 +473,21 @@
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <div class="chart-legend" id="chartLegend">
+                    <div class="chart-legend color-control" id="chartLegend">
                         <div class="legend-item">
-                            <div class="legend-line" style="background:#ffffff85;"></div>
+                            <input type="color" class="legend-line" id="Actual_gauge_definer"></input>
                             <span>Actual</span>
                         </div>
                         <div class="legend-item">
-                            <div class="legend-line" style="background:#4fc3f7;"></div>
+                            <input type="color" class="legend-line" id="Real_gauge_definer"></input>
                             <span>Real (post)</span>
                         </div>
                         <div class="legend-item">
-                            <div class="legend-line"
-                                 style="background:#f5a623;border-top:2px dashed #f5a623;
-                                        height:0;width:24px;"></div>
+                            <input type="color" class="legend-line" id="prediction_MIF_gauge_definer"></input>
                             <span>Predicted (MIF)</span>
                         </div>
                     </div>
+                    <div class="chart-legend color-control" id="sessionLegendContainer"></div>
                     <button class="toggle-chart-btn" onclick="openSessionCagrModal()" data-i18n="index.session_cagr">
                         + Session CAGR
                     </button>
@@ -554,11 +599,11 @@
             
             <div class="kpi-card">
                 <div class="kpi-label">
-                    <span>CAGR of Actual Interval of selected offer</span>
+                    <span data-i18n="index.kpi_cagr_actual_interval_offer">CAGR of Actual Interval of selected offer</span>
                     <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                     <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                        <div></div>
+                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{ {{ revenue_years[-1] }} }}{M_{ {{ revenue_years[0] }} }}\right)^{\frac{1}{ {{ revenue_years[-1]-revenue_years[0] }} }} - 1 \)</div>
+                        <div> CAGR of {{ revenue_years[0] }} → {{ revenue_years[-1] }}</div>
                     </div>
                 </div>
                 <div class="kpi-value white" id="kpiSelectedOfferCagrActual">—</div>
@@ -566,7 +611,7 @@
 
             <div class="kpi-card">
                 <div class="kpi-label">
-                    <span data-i18n="index.kpi_cagr_actual_interval">Total CAGR of Actual Interval</span>
+                    <span data-i18n="index.kpi_cagr_actual_interval">SVP/CVP CAGR of Actual Interval</span>
                     <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                     <div class="tooltip-content">
                         <div class="tooltip-formula"></div>
@@ -575,7 +620,7 @@
                 </div>
                 <div class="kpi-value" id="kpiCagrActualInterval">—</div>
             </div>
-            <div class="kpi-card">
+            <!--<div class="kpi-card">
                 <div class="kpi-label">
                     <span data-i18n="index.kpi_avg_cagr">Avg CAGR</span>
                     <span class="info-icon" onclick="toggleTooltip(event)">!</span>
@@ -585,17 +630,63 @@
                     </div>
                 </div>
                 <div class="kpi-value" id="kpiAvgCagr">—</div>
-            </div>
-            <div class="kpi-card">
+
+                <div class="kpi-card">
+                    <div class="kpi-label">
+                        <span data-i18n="index.kpi_total_cagr">Total CAGR</span>
+                        <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                        <div class="tooltip-content">
+                            <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
+                            <div data-i18n="index.tooltip_total_cagr_desc">CAGR of the TOTAL row across the CAGR interval, calculated from market size values.</div>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpiTotalCagr">—</div>
+                </div>
+            </div>-->
+            <div class="kpi-card" id="kpiCardAvgCagrMif">
                 <div class="kpi-label">
-                    <span data-i18n="index.kpi_total_cagr">Total CAGR</span>
+                    <span data-i18n="index.kpi_avg_cagr_mif">Avg CAGR MIF</span>
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">
+                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
+                        <div data-i18n="index.tooltip_avg_cagr_desc">Average MIF CAGR of all individual offers, each calculated from market size values.</div>
+                    </div>
+                </div>
+                <div class="kpi-value" id="kpiAvgCagrMif">—</div>
+            </div>
+            <div class="kpi-card" id="kpiCardTotalCagrMif">
+                <div class="kpi-label">
+                    <span data-i18n="index.kpi_total_cagr_mif">SVP/CVP CAGR MIF</span>
                     <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                     <div class="tooltip-content">
                         <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
                         <div data-i18n="index.tooltip_total_cagr_desc">CAGR of the TOTAL row across the CAGR interval, calculated from market size values.</div>
                     </div>
                 </div>
-                <div class="kpi-value" id="kpiTotalCagr">—</div>
+                <div class="kpi-value" id="kpiTotalCagrMif">—</div>
+            </div>
+            <div class="kpi-card" id="kpiCardAvgCagrBl" style="display:none;">
+                <div class="kpi-label">
+                    <span data-i18n="index.kpi_avg_cagr_bl">Avg CAGR BL</span>
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">
+                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
+                        <div data-i18n="index.tooltip_avg_cagr_desc">Average BL CAGR of all individual offers, each calculated from custom CAGR values.</div>
+                    </div>
+                </div>
+                <div class="kpi-value" id="kpiAvgCagrBl">—</div>
+            </div>
+
+            <div class="kpi-card" id="kpiCardTotalCagrBl" style="display:none;">
+                <div class="kpi-label">
+                    <span data-i18n="index.kpi_total_cagr_bl">SVP/CVP CAGR BL</span>
+                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                    <div class="tooltip-content">
+                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
+                        <div data-i18n="index.tooltip_total_cagr_desc">CAGR of the TOTAL row across the CAGR interval, calculated from custom CAGR values.</div>
+                    </div>
+                </div>
+                <div class="kpi-value" id="kpiTotalCagrBl">—</div>
             </div>
         </div>
 
@@ -800,6 +891,9 @@ let currentChartData   = null;
 let revenueChart       = null;
 let chartVisible       = true;
 
+let revenue_years_start= {{ revenue_years[0] }};
+let revenue_years_end  = {{ revenue_years[-1] }};
+
 // Multi-select state
 let selectedRowIndices = new Set();
 
@@ -809,6 +903,18 @@ let sessionCagrCounter  = 0;
 // Palette for session CAGR curves
 const SESSION_PALETTE = ['#34d399','#c084fc','#f87171','#60a5fa','#fbbf24',
                          '#a78bfa','#fb923c','#4ade80'];
+
+// Build the per-year table/export column key for a session CAGR, e.g.
+// "Predicted_Q4 Push_2027 (session)". The session's own display label is
+// used (not a numeric id), matching what's shown in the legend/list, with
+// underscores swapped for spaces so it doesn't collide with the "_" used
+// to separate the year suffix.
+function sessionColKey(sc, year) {
+    return `Predicted_${sc.label}_${year} (session)`;
+}
+function isSessionColumn(colName) {
+    return colName.endsWith('(session)');
+}
 
 // ── chart toggle ──────────────────────────────────────────────────────────────
 function toggleChart() {
@@ -946,38 +1052,67 @@ function toggleAdvancedOptions() {
 // datasets[2] = Predicted MIF (orange dashed)
 // datasets[3] = Predicted BL  (purple dashed) — only for 'both' mode
 // datasets[4+] = Session CAGRs
+// Initialize persistent custom color state if not already present
+window.customColors = window.customColors || {
+    actual: null,
+    realPost: null,
+    predictedMIF: null,
+    predictedBL: null
+};
+
 function renderChart(labels, actual, realPost, predictedMIF, title, predictedBL) {
+    const theme = getCurrentTheme();
+    const colors = chartColorSchemes[theme];
     const ctx = document.getElementById('revenueChart').getContext('2d');
+
+    // 1. Fallback to default theme values only if no custom color has been picked yet
+    const currentActual = window.customColors.actual || colors.actual;
+    const currentRealPost = window.customColors.realPost || colors.realPost;
+    const currentPredictedMIF = window.customColors.predictedMIF || colors.predictedMIF;
+    const currentPredictedBL = window.customColors.predictedBL || colors.predictedBL;
+
+    const actual_gauge_definer = document.getElementById("Actual_gauge_definer");
+    const real_gauge_definer = document.getElementById("Real_gauge_definer");
+    const pred_mif_gauge_definer = document.getElementById("prediction_MIF_gauge_definer");
+    const pred_bl_gauge_definer = document.getElementById("prediction_BL_gauge_definer");
+    
+    if (actual_gauge_definer) actual_gauge_definer.value = currentActual;
+    if (real_gauge_definer) real_gauge_definer.value = currentRealPost;
+    if (pred_mif_gauge_definer) pred_mif_gauge_definer.value = currentPredictedMIF;
+    if (pred_bl_gauge_definer) pred_bl_gauge_definer.value = currentPredictedBL;
+    console.log("aaaa");
+
     if (revenueChart) revenueChart.destroy();
 
+    // 2. Assign the tracked custom colors to the new datasets array
     const datasets = [
         {
             label: 'Actual',
             data: actual,
-            borderColor: '#ffffff85',
-            backgroundColor: 'rgba(255,255,200,0.04)',
+            borderColor: currentActual,
+            backgroundColor: `${currentActual}15`,
             borderWidth: 2,
-            pointBackgroundColor: '#ffffff85',
+            pointBackgroundColor: currentActual,
             pointRadius: 4, pointHoverRadius: 6,
             tension: 0.3, fill: false, spanGaps: false,
         },
         {
             label: 'Real (post pred-start)',
             data: realPost,
-            borderColor: '#4fc3f7',
-            backgroundColor: 'rgba(79,195,247,0.06)',
+            borderColor: currentRealPost,
+            backgroundColor: `${currentRealPost}15`,
             borderWidth: 2,
-            pointBackgroundColor: '#4fc3f7',
+            pointBackgroundColor: currentRealPost,
             pointRadius: 4, pointHoverRadius: 6,
             tension: 0.3, fill: false, spanGaps: false,
         },
         {
             label: 'Predicted (MIF)',
             data: predictedMIF,
-            borderColor: '#f5a623',
-            backgroundColor: 'rgba(245,166,35,0.08)',
+            borderColor: currentPredictedMIF,
+            backgroundColor: `${currentPredictedMIF}15`,
             borderWidth: 2, borderDash: [6,4],
-            pointBackgroundColor: '#f5a623',
+            pointBackgroundColor: currentPredictedMIF,
             pointRadius: 4, pointHoverRadius: 6,
             tension: 0.3, fill: true, spanGaps: false,
         },
@@ -987,10 +1122,10 @@ function renderChart(labels, actual, realPost, predictedMIF, title, predictedBL)
         datasets.push({
             label: 'Predicted (BL)',
             data: predictedBL,
-            borderColor: '#c084fc',
-            backgroundColor: 'rgba(192,132,252,0.06)',
+            borderColor: currentPredictedBL,
+            backgroundColor: `${currentPredictedBL}15`,
             borderWidth: 2, borderDash: [4,4],
-            pointBackgroundColor: '#c084fc',
+            pointBackgroundColor: currentPredictedBL,
             pointRadius: 4, pointHoverRadius: 6,
             tension: 0.3, fill: false, spanGaps: false,
         });
@@ -1065,7 +1200,7 @@ function renderTable(tableData, columnOrder) {
         sessionCagrs.forEach(sc => {
             labels.forEach((y, li) => {
                 if (li < psIdx) return;
-                const col = `Predicted_Session_${sc.id}_${y}`;
+                const col = sessionColKey(sc, y);
                 if (!fullColumns.includes(col)) fullColumns.push(col);
             });
         });
@@ -1076,9 +1211,9 @@ function renderTable(tableData, columnOrder) {
         let cls = '';
         if (h.startsWith('Predicted_BL_'))      cls = 'col-predicted-bl';
         else if (h.startsWith('Predicted_MIF_') ||
-                 (h.startsWith('Predicted_') && !h.startsWith('Predicted_Session_')))
+                 (h.startsWith('Predicted_') && !isSessionColumn(h)))
                                                   cls = 'col-predicted';
-        else if (h.startsWith('Predicted_Session_')) cls = 'col-session';
+        else if (isSessionColumn(h)) cls = 'col-session';
         else if (h.startsWith('Real_'))           cls = 'col-real-post';
         html += `<th class="${cls}">${h}</th>`;
     });
@@ -1095,12 +1230,12 @@ function renderTable(tableData, columnOrder) {
             let cls = '';
             if (h.startsWith('Predicted_BL_'))       cls = 'col-predicted-bl';
             else if (h.startsWith('Predicted_MIF_') ||
-                     (h.startsWith('Predicted_') && !h.startsWith('Predicted_Session_')))
+                     (h.startsWith('Predicted_') && !isSessionColumn(h)))
                                                        cls = 'col-predicted';
-            else if (h.startsWith('Predicted_Session_')) cls = 'col-session';
+            else if (isSessionColumn(h)) cls = 'col-session';
             else if (h.startsWith('Real_'))            cls = 'col-real-post';
             else if (h.startsWith('Revenue_') || h.includes('CAGR')) cls = 'orange';
-            else if (['Market_Category','Sub-segment 2','SVP'].includes(h)) cls = 'muted';
+            else if (['Market_Category','Segment','Sub-segment 1','Sub-segment 2','Sub-segment 3','SVP'].includes(h)) cls = 'muted';
             if (isTotal) cls = '';
             html += `<td class="${cls}">${val ?? '—'}</td>`;
         });
@@ -1126,7 +1261,12 @@ function selectTableRow(el, idx) {
     if (selectedRowIndices.size === 0) {
         document.getElementById('kpiSelectedElementCagr').textContent  = '—';
         document.getElementById('kpiSelectedOfferCagrBL').textContent  = '—';
+        document.getElementById('kpiSelectedOfferCagrActual').textContent  = '—';
+        
         if (currentChartData) {
+            const mode = currentChartData.use_custom_cagr || 'no';
+            updateKpiVisibility(mode);
+            
             renderChart(
                 currentChartData.chart_labels,
                 currentChartData.chart_actual,
@@ -1135,7 +1275,6 @@ function selectTableRow(el, idx) {
                 'Total Revenue by Year',
                 currentChartData.chart_predicted_bl
             );
-            // Pass null = total view (all offers)
             _appendSessionDatasetsToChart(null);
             computePerformanceKPIs(null);
         }
@@ -1209,19 +1348,23 @@ function selectTableRow(el, idx) {
             }
         });
     });
-
-    // MIF CAGR KPI — average of selected offers' MIF CAGRs
-    const avgMifCagr = mifCagrValues.length
-        ? (mifCagrValues.reduce((a, b) => a + b, 0) / mifCagrValues.length).toFixed(2) + '%'
-        : '—';
+    
+    // ✅ MIF CAGR KPI — average of selected offers' MIF CAGRs
+    const avgMifCagr = mode === 'yes' ? 'N/A (BL mode)' : 
+        (mifCagrValues.length ? (mifCagrValues.reduce((a, b) => a + b, 0) / mifCagrValues.length).toFixed(2) + '%'
+        : '—' );
     document.getElementById('kpiSelectedElementCagr').textContent = avgMifCagr;
 
-    // BL CAGR KPI
-    const avgBlCagr = blCagrValues.length
-        ? (blCagrValues.reduce((a, b) => a + b, 0) / blCagrValues.length).toFixed(2) + '%'
-        : (mode === 'no' ? 'N/A (MIF mode)' : '—');
+    // ✅ BL CAGR KPI
+    const avgBlCagr = mode === 'no' ? 'N/A (MIF mode)' :
+        (blCagrValues.length
+            ? (blCagrValues.reduce((a, b) => a + b, 0) / blCagrValues.length).toFixed(2) + '%'
+            : '—');
     document.getElementById('kpiSelectedOfferCagrBL').textContent = avgBlCagr;
 
+    const cagrActualInterval = calculateActualIntervalCagr([...selectedRowIndices]);
+    document.getElementById('kpiSelectedOfferCagrActual').textContent = cagrActualInterval;
+    
     const offerNames = [...selectedRowIndices]
         .map(i => currentTableData[i]['Offer']).join(', ');
     const titleStr = offerNames.length > 70
@@ -1299,6 +1442,100 @@ function closeSessionCagrModal() {
     document.getElementById('sessionCagrModal').classList.remove('active');
 }
 
+// ── KPI visibility management ──────────────────────────────────────────────────
+
+function updateKpiVisibility(mode) {
+    /**
+     * mode: 'no' (MIF only), 'yes' (BL only), 'both' (both MIF and BL)
+     */
+    const mifCards = [
+        'kpiCardAvgCagrMif',
+        'kpiCardTotalCagrMif',
+    ];
+    
+    const blCards = [
+        'kpiCardAvgCagrBl',
+        'kpiCardTotalCagrBl',
+    ];
+        
+    // Hide all first
+    [...mifCards, ...blCards].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    
+    // Show based on mode
+    if (mode === 'no') {
+        // MIF mode: show MIF KPIs
+        mifCards.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+    } else if (mode === 'yes') {
+        // BL mode: show BL KPIs
+        blCards.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+    } else if (mode === 'both') {
+        // Both mode: show all
+        mifCards.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+        blCards.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
+    }
+}
+
+// ── Calculate CAGR of Actual Interval for selected offers ──
+function calculateActualIntervalCagr(rowIndices) {
+    if (!currentChartData || !currentTableData || !rowIndices || rowIndices.length === 0) {
+        return '—';
+    }
+
+    const labels = currentChartData.chart_labels;
+    const revenueYears = labels; // Assuming all labels are revenue years
+    
+    if (revenueYears.length < 2) return '—';
+
+    const cagrValues = [];
+
+    rowIndices.forEach(i => {
+        const row = currentTableData[i];
+        if (row['Offer'] === 'TOTAL') return;
+
+        const parseCell = (col) => {
+            const v = row[col];
+            if (!v || v === '—' || v === '---') return null;
+            return parseFloat(String(v).replace(/,/g, ''));
+        };
+
+        // Get first and last year values from Revenue columns
+        const firstYear = revenue_years_start;
+        const lastYear = revenue_years_end;
+
+        const startVal = parseCell(`Revenue_${firstYear}`)+0.01;
+        const endVal = parseCell(`Real_${lastYear}`);
+        console.log(startVal);
+        console.log(endVal);
+        if (startVal && endVal) {
+            const n = revenueYears.length - 1;
+            const cagr = (Math.sign(endVal / startVal)*Math.pow(Math.abs(endVal / startVal), 1 / n) - 1) * 100;
+            cagrValues.push(cagr);
+        }
+    });
+
+    console.log(cagrValues);
+    if (cagrValues.length === 0) return '—';
+
+    // Return average CAGR of selected offers
+    const avgCagr = cagrValues.reduce((a, b) => a + b, 0) / cagrValues.length;
+    return avgCagr.toFixed(2) + '%';
+}
+
 function addSessionCagr() {
     const sel      = document.getElementById('sessionOfferSelect');
     const cagrV    = parseFloat(document.getElementById('sessionCagrValue').value);
@@ -1317,6 +1554,7 @@ function addSessionCagr() {
         offers: selected.includes('__all__') ? '__all__' : selected,
         cagr:   cagrV / 100,
         label:  label,
+        color:  SESSION_PALETTE[sessionCagrs.length % SESSION_PALETTE.length],
     });
     document.getElementById('sessionCagrValue').value = '';
     document.getElementById('sessionCagrName').value  = '';
@@ -1438,7 +1676,7 @@ function _enrichTableWithSessionCagrs() {
 
             labels.forEach((y, li) => {
                 if (li < psIdx) return;
-                const col = `Predicted_Session_${sc.id}_${y}`;
+                const col = sessionColKey(sc, y);
                 if (applies) {
                     const steps = li - psIdx;
                     const v = seed * Math.pow(1 + sc.cagr, steps);
@@ -1599,6 +1837,7 @@ function computePerformanceKPIs(rowIndices) {
     const fmtR2    = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(3);
     const fmtSmape = v => (v === null || v === undefined || isNaN(v)) ? '—' : v.toFixed(2) + '%';
 
+    /*
     document.getElementById('kpiMaeMif').textContent   = fmtVal(mMIF.mae);
     document.getElementById('kpiR2Mif').textContent    = fmtR2(mMIF.r2);
     document.getElementById('kpiSmapeMif').textContent = fmtSmape(mMIF.smape);
@@ -1606,6 +1845,7 @@ function computePerformanceKPIs(rowIndices) {
     document.getElementById('kpiMaeBl').textContent   = fmtVal(mBL.mae);
     document.getElementById('kpiR2Bl').textContent    = fmtR2(mBL.r2);
     document.getElementById('kpiSmapeBl').textContent = fmtSmape(mBL.smape);
+    */
 }
 
 // activeIndices: null/undefined = use ALL offers (total view)
@@ -1662,10 +1902,10 @@ function _appendSessionDatasetsToChart(activeIndices) {
             revenueChart.data.datasets.push({
                 label: `Predicted (${sc.label})`,
                 data:  sumPred,
-                borderColor: SESSION_PALETTE[si % SESSION_PALETTE.length],
+                borderColor: sc.color,
                 backgroundColor: 'transparent',
                 borderWidth: 2, borderDash: [3,3],
-                pointBackgroundColor: SESSION_PALETTE[si % SESSION_PALETTE.length],
+                pointBackgroundColor: sc.color,
                 pointRadius: 3, pointHoverRadius: 5,
                 tension: 0.3, fill: false, spanGaps: false,
             });
@@ -1673,6 +1913,49 @@ function _appendSessionDatasetsToChart(activeIndices) {
     });
 
     revenueChart.update();
+    syncSessionLegend();
+}
+
+// ── Session CAGR legend swatches ────────────────────────────────────────────
+// Keeps #sessionLegendContainer's color inputs in sync with sessionCagrs.
+// Lives in its own sibling container (not inside #chartLegend) because
+// #chartLegend's innerHTML gets fully rebuilt after every "Run Analysis" —
+// putting session swatches there would wipe them out along with the base
+// legend. Delegation on the stable container means the listener survives
+// this function re-rendering the swatches whenever a session is added or
+// removed.
+function syncSessionLegend() {
+    const container = document.getElementById('sessionLegendContainer');
+    if (!container) return;
+
+    container.innerHTML = sessionCagrs.map(sc => `
+        <div class="legend-item">
+            <input type="color" class="legend-line session-color-input"
+                   id="session_color_${sc.id}" data-session-id="${sc.id}"
+                   value="${sc.color}">
+            <span>${sc.label}</span>
+        </div>`).join('');
+}
+
+if (!window.__sessionLegendDelegated) {
+    window.__sessionLegendDelegated = true;
+    document.addEventListener('input', (e) => {
+        const input = e.target;
+        if (!input.matches('.session-color-input')) return;
+        const id = parseInt(input.dataset.sessionId, 10);
+        const sc = sessionCagrs.find(s => s.id === id);
+        if (!sc) return;
+        sc.color = input.value;
+
+        if (!revenueChart) return;
+        const dataset = revenueChart.data.datasets.find(
+            d => d.label === `Predicted (${sc.label})`);
+        if (dataset) {
+            dataset.borderColor = sc.color;
+            dataset.pointBackgroundColor = sc.color;
+            revenueChart.update();
+        }
+    });
 }
 
 
@@ -1778,24 +2061,74 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         sessionCagrs       = [];
         sessionCagrCounter = 0;
 
+        const mode = data.use_custom_cagr || 'no';
+        updateKpiVisibility(mode);
+
         updateTopBar();
         document.getElementById('kpiSelectedElementCagr').textContent = '—';
         document.getElementById('kpiCagrActualInterval').textContent  = data.actual_cagr;
-        document.getElementById('kpiAvgCagr').textContent             = data.avg_cagr;
+
+        const all_cagr_bl = [];
+        const all_cagr_mif= [];
+        data.table_data.forEach(row => {
+            const blCol = Object.keys(row).find(c => c.startsWith('BL_CAGR'));
+            if (blCol && row[blCol] && row[blCol] !== '—') {
+                const pct = parseFloat(row[blCol].replace('%', ''));
+                if (!isNaN(pct)) all_cagr_bl.push(pct);
+            }
+            const mifCol = Object.keys(row).find(c => c.startsWith('MIF_CAGR_'));
+            if (mifCol && row[mifCol] && row[mifCol] !== '—') {
+                const pct = parseFloat(row[mifCol].replace('%', ''));
+                if (!isNaN(pct)) all_cagr_mif.push(pct);
+            }
+            
+        });
+        
+        const avg_cagr_bl = String((all_cagr_bl.reduce((sum, num) => sum + num, 0) / all_cagr_bl.length).toFixed(2))+"%";
+        const avg_cagr_mif= String((all_cagr_mif.reduce((sum, num) => sum + num, 0) / all_cagr_mif.length).toFixed(2));
+        //console.log(avg_cagr_mif);
+
+        if (mode === 'no') {
+            document.getElementById('kpiAvgCagrMif').textContent = data.avg_cagr;
+        } else if (mode === 'yes') {
+            document.getElementById('kpiAvgCagrBl').textContent = avg_cagr_bl;
+        } else if (mode === 'both') {
+            document.getElementById('kpiAvgCagrMif').textContent = data.avg_cagr;
+            document.getElementById('kpiAvgCagrBl').textContent = avg_cagr_bl;
+        }
+
         document.getElementById('kpiSelectedOfferCagrBL').textContent = '—';
 
         // Total CAGR
-        let totalCagr = '—';
-        if (data.tot_predicted && data.cagr_start_year && data.cagr_end_year) {
+        let totalCagrMIF = '—';
+        let totalCagrBL  = '—';
+        if (data.tot_predicted_mif && data.tot_predicted_bl && data.cagr_start_year && data.cagr_end_year) {
             const sy = parseInt(data.cagr_start_year);
             const ey = parseInt(data.cagr_end_year);
-            const sv = data.tot_predicted[sy];
-            const ev = data.tot_predicted[ey];
-            if (sv !== undefined && ev !== undefined && sv > 0 && ey > sy) {
-                totalCagr = ((Math.pow(ev/sv, 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
+            const sv_mif = data.tot_predicted_mif[sy];
+            const ev_mif = data.tot_predicted_mif[ey];
+            console.log(data.tot_predicted_mif);
+            console.log(ey);
+            console.log(sy);
+            if (sv_mif !== undefined && ev_mif !== undefined && ey > sy) {
+                totalCagrMIF = ((Math.pow(ev_mif/(sv_mif+0.1), 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
+            }
+            const sv_bl = data.tot_predicted_bl[sy];
+            const ev_bl = data.tot_predicted_bl[ey];
+            if (sv_bl !== undefined && ev_bl !== undefined && ey > sy) {
+                totalCagrBL = ((Math.pow(ev_bl/(sv_bl+0.1), 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
             }
         }
-        document.getElementById('kpiTotalCagr').textContent = totalCagr;
+
+        // ✅ Update based on mode
+        if (mode === 'no') {
+            document.getElementById('kpiTotalCagrMif').textContent = totalCagrMIF;
+        } else if (mode === 'yes') {
+            document.getElementById('kpiTotalCagrBl').textContent = totalCagrBL;
+        } else if (mode === 'both') {
+            document.getElementById('kpiTotalCagrMif').textContent = totalCagrMIF;
+            document.getElementById('kpiTotalCagrBl').textContent = totalCagrBL;
+        }
 
         document.getElementById('chartSubtitle').textContent =
             `Display: ${data.display_start_year}→${data.display_end_year} · ` +
@@ -1806,31 +2139,45 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         const legendEl = document.getElementById('chartLegend');
         if (data.use_custom_cagr === 'both') {
             legendEl.innerHTML = `
+                        <div class="legend-item">
+                            <input type="color" class="legend-line" id="Actual_gauge_definer"></input>
+                            <span>Actual</span>
+                        </div>
+                        <div class="legend-item">
+                            <input type="color" class="legend-line" id="Real_gauge_definer"></input>
+                            <span>Real (post)</span>
+                        </div>
+                        <div class="legend-item">
+                            <input type="color" class="legend-line" id="prediction_MIF_gauge_definer"></input>
+                            <span>Predicted (MIF)</span>
+                        </div>
+                        <div class="legend-item">
+                            <input type="color" class="legend-line" id="prediction_BL_gauge_definer"></input>
+                            <span>Predicted (BL)</span>
+                        </div>`;
+        } else if (data.use_custom_cagr == "no"){
+            legendEl.innerHTML = `
                 <div class="legend-item">
-                    <div class="legend-line" style="background:#ffffff85;"></div><span>Actual</span>
+                    <input type="color" class="legend-line" id="Actual_gauge_definer"></input><span>Actual</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-line" style="background:#4fc3f7;"></div><span>Real (post)</span>
+                    <input type="color" class="legend-line" id="Real_gauge_definer"></input><span>Real (post)</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-line" style="background:#f5a623;border-top:2px dashed #f5a623;height:0;width:24px;"></div>
+                    <input type="color" class="legend-line" id="prediction_MIF_gauge_definer"></input>
                     <span>Predicted (MIF)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-line" style="background:#c084fc;border-top:2px dashed #c084fc;height:0;width:24px;"></div>
-                    <span>Predicted (BL)</span>
                 </div>`;
         } else {
             legendEl.innerHTML = `
                 <div class="legend-item">
-                    <div class="legend-line" style="background:#ffffff85;"></div><span>Actual</span>
+                    <input type="color" class="legend-line" id="Actual_gauge_definer"></input><span>Actual</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-line" style="background:#4fc3f7;"></div><span>Real (post)</span>
+                    <input type="color" class="legend-line" id="Real_gauge_definer"></input><span>Real (post)</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-line" style="background:#f5a623;border-top:2px dashed #f5a623;height:0;width:24px;"></div>
-                    <span>Predicted</span>
+                    <input type="color" class="legend-line" id="prediction_BL_gauge_definer"></input>
+                    <span>Predicted (BL)</span>
                 </div>`;
         }
 
@@ -1943,13 +2290,13 @@ function populateCvpGrid(cvpOptions) {
 // ── init ──────────────────────────────────────────────────────────────────────
 
 // Detect current theme
-function getCurrentTheme() {
+function getCurrentTheme_2() {
     const isDarkMode = document.body.classList.contains('dark-mode');
     return isDarkMode ? 'dark' : 'light';
 }
 
 // Define color schemes
-const chartColorSchemes = {
+const chartColorSchemes_2 = {
     light: {
         actual: '#000000',      // Black
         realPost: '#4CAF50',    // Green
@@ -1968,14 +2315,67 @@ const chartColorSchemes = {
 function initializeChart(chartData) {
     const theme = getCurrentTheme();
     const colors = chartColorSchemes[theme];
+
+    const actual_gauge_definer = document.getElementById("Actual_gauge_definer");
+    const real_gauge_definer = document.getElementById("Real_gauge_definer");
+    const pred_mif_gauge_definer = document.getElementById("prediction_MIF_gauge_definer");
+    const pred_bl_gauge_definer = document.getElementById("prediction_BL_gauge_definer");
+    if (actual_gauge_definer) actual_gauge_definer.value = colors["actual"];
+    if (real_gauge_definer) real_gauge_definer.value = colors["realPost"];
+    if (pred_mif_gauge_definer) pred_mif_gauge_definer.value = colors["predictedMIF"];
+    if (pred_bl_gauge_definer) pred_bl_gauge_definer.value = colors["predictedBL"];
     
     const ctx = document.getElementById('myChart').getContext('2d');
-    
-    const chartConfig = {
-        type: 'line',
-        data: {
-            labels: chartData.chart_labels,
-            datasets: [
+
+    /*
+    if (predictedBL && predictedBL.some(v => v !== null && v !== '---')) {
+        datasets.push({
+            label: 'Predicted (BL)',
+            data: predictedBL,
+            borderColor: colors.predictedBL,
+            backgroundColor: `${colors.predictedBL}15`,
+            borderWidth: 2, borderDash: [4,4],
+            pointBackgroundColor: colors.predictedBL,
+            pointRadius: 4, pointHoverRadius: 6,
+            tension: 0.3, fill: false, spanGaps: false,
+        });
+    }
+    */
+    /*
+    const datasets = [
+        {
+            label: 'Actual',
+            data: actual,
+            borderColor: colors.actual,
+            backgroundColor: `${colors.actual}15`,
+            borderWidth: 2,
+            pointBackgroundColor: colors.actual,
+            pointRadius: 4, pointHoverRadius: 6,
+            tension: 0.3, fill: false, spanGaps: false,
+        },
+        {
+            label: 'Real (post pred-start)',
+            data: realPost,
+            borderColor: colors.realPost,
+            backgroundColor: '${colors.realPost}15',
+            borderWidth: 2,
+            pointBackgroundColor: colors.realPost,
+            pointRadius: 4, pointHoverRadius: 6,
+            tension: 0.3, fill: false, spanGaps: false,
+        },
+        {
+            label: 'Predicted (MIF)',
+            data: predictedMIF,
+            borderColor: colors.predictedMIF,
+            backgroundColor: `${colors.predictedMIF}15`,
+            borderWidth: 2, borderDash: [6,4],
+            pointBackgroundColor: colors.predictedMIF,
+            pointRadius: 4, pointHoverRadius: 6,
+            tension: 0.3, fill: true, spanGaps: false,
+        },
+    ];
+    */
+    const datasets = [
                 {
                     label: 'Actual',
                     data: chartData.chart_actual,
@@ -2005,6 +2405,12 @@ function initializeChart(chartData) {
                     borderDash: [5, 5]
                 }
             ]
+
+    const chartConfig = {
+        type: 'line',
+        data: {
+            labels: chartData.chart_labels,
+            datasets: datasets
         },
         options: {
             responsive: true,
@@ -2039,17 +2445,6 @@ function initializeChart(chartData) {
     
     return new Chart(ctx, chartConfig);
 }
-
-// Listen for theme changes
-document.addEventListener('themeChanged', function() {
-    // Reinitialize chart with new colors
-    if (window.myChart) {
-        window.myChart.destroy();
-    }
-    window.myChart = initializeChart(window.chartData);
-    window.dispatchEvent(new CustomEvent('chartReady'));
-
-});
 
 window.addEventListener('DOMContentLoaded', () => {
     const savedState = localStorage.getItem('advancedOptionsVisible');
@@ -2123,7 +2518,7 @@ async function downloadTable() {
             sessionCagrs.forEach(sc => {
                 labels.forEach((y, li) => {
                     if (li < psIdx) return;
-                    const col = `Predicted_Session_${sc.id}_${y}`;
+                    const col = sessionColKey(sc, y);
                     if (!fullColumns.includes(col)) fullColumns.push(col);
                 });
             });
@@ -2237,8 +2632,97 @@ function adjustMainLayoutForWarnings() {
 {% endblock %}
 
 {% block extra_js %}
-
 <script>
+document.addEventListener('DOMContentLoaded', () => {
+  const chartLegend = document.getElementById('chartLegend');
+  
+  if (chartLegend) {
+    // Use Event Delegation on the stable parent element
+    chartLegend.addEventListener('input', (e) => {
+      const input = e.target;
+      if (!input || input.type !== 'color') return;
+
+      let keyword = '';
+      if (input.id === 'Actual_gauge_definer') {
+        window.customColors.actual = input.value;
+        keyword = 'Actual';
+      } else if (input.id === 'Real_gauge_definer') {
+        window.customColors.realPost = input.value;
+        keyword = 'Real';
+      } else if (input.id === 'prediction_MIF_gauge_definer') {
+        window.customColors.predictedMIF = input.value;
+        keyword = 'MIF';
+      } else if (input.id === 'prediction_BL_gauge_definer') {
+        window.customColors.predictedBL = input.value;
+        keyword = 'BL';
+      }
+
+      if (!keyword) return;
+
+      // Safely look up dataset lines by checking text labels instead of static index numbers
+      if (revenueChart && revenueChart.data && revenueChart.data.datasets) {
+        const dataset = revenueChart.data.datasets.find(d => d.label && d.label.includes(keyword));
+        if (dataset) {
+          dataset.borderColor = input.value;
+          dataset.backgroundColor = input.value + '15'; // Maintained consistent 15% background opacity
+          dataset.pointBackgroundColor = input.value;
+          revenueChart.update();
+        }
+      }
+    });
+  }
+});
+
+// Also clear the selections when theme changes to let default rules recalculate safely
+document.addEventListener('themeChanged', function() {
+    window.customColors = { actual: null, realPost: null, predictedMIF: null, predictedBL: null };
+    if (window.myChart) {
+        window.myChart.destroy();
+    }
+    window.myChart = initializeChart(window.chartData);
+    window.dispatchEvent(new CustomEvent('chartReady'));
+});
+// ── Session CAGR curves (dynamic) ────────────────────────────────
+// Call this function each time a Session CAGR is added
+function addSessionCagrColorPicker(sessionIndex, datasetIndex, defaultColor = '#E91E63') {
+  const container = document.getElementById('session-cagr-colors');
+  if (!container) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'color-control';
+  wrapper.id = `color-control-session-${sessionIndex}`;
+
+  wrapper.innerHTML = `
+    <input type="color" id="color-session-${sessionIndex}" value="${defaultColor}">
+    <label for="color-session-${sessionIndex}">Session CAGR ${sessionIndex + 1}</label>
+  `;
+  container.appendChild(wrapper);
+
+  document.getElementById(`color-session-${sessionIndex}`)
+    .addEventListener('input', (e) => {
+      if (!myChart || !myChart.data.datasets[datasetIndex]) return;
+      myChart.data.datasets[datasetIndex].borderColor     = e.target.value;
+      myChart.data.datasets[datasetIndex].backgroundColor = e.target.value + '33';
+      myChart.update();
+    });
+}
+
+
+// ── Remove Session CAGR color picker when session is cancelled ────
+function removeSessionCagrColorPicker(sessionIndex) {
+  const el = document.getElementById(`color-control-session-${sessionIndex}`);
+  if (el) el.remove();
+}
+
+
+// ── Show/hide BL color picker based on CAGR mode ─────────────────
+function updateBlColorPickerVisibility(useCustomCagr) {
+  const blControl = document.getElementById('color-control-bl');
+  if (!blControl) return;
+  blControl.style.display = (useCustomCagr === 'both') ? 'flex' : 'none';
+}
+
+
 // ─── Theme-aware colors ───────────────────────────────────────────────────────
 const ACTUAL_COLOR_LIGHT = '#000000'; // Black in light mode
 const ACTUAL_COLOR_DARK  = '#808080'; // Gray in dark mode
@@ -2251,9 +2735,11 @@ function getActualColor() {
 
 // ─── Apply color to the Actual dataset ───────────────────────────────────────
 function updateActualCurveColor() {
+    console.log(window.myChart);
     if (!window.myChart) return;
 
     const color = getActualColor();
+    console.log(color);
 
     // Find the "Actual" dataset by label
     const actualDataset = window.myChart.data.datasets.find(
@@ -2270,8 +2756,14 @@ function updateActualCurveColor() {
 }
 
 // ─── Listen for theme changes ─────────────────────────────────────────────────
-window.addEventListener('themeChanged', function () {
-    updateActualCurveColor();
+window.addEventListener('themeChanged', function(event) {
+    const theme = event.detail.theme;
+    console.log('Theme changed to:', theme);
+    
+    // Update chart colors, etc.
+    if (typeof revenueChart !== 'undefined' && revenueChart) {
+        updateChartColors(revenueChart, theme);
+    }
 });
 
 // ─── Call after chart is initialized ─────────────────────────────────────────

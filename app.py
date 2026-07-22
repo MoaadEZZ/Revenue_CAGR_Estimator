@@ -4,6 +4,11 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from pipeline import *
+from pipeline import (
+    DATA_CAGR_SVP, DATA_MARKET_SIZE, DATA_ALL_PRODUCTS,
+    DATA_REVENUE_FR, DATA_REVENUE_INTL,
+    build_category_mapper, combine_revenue_files,
+)
 import json
 import os
 import shutil
@@ -228,21 +233,40 @@ def settings():
     return render_template('settings.html')
 
 
+TRACKED_FILES = [
+    ('cagr_svp',    DATA_CAGR_SVP),
+    ('market',      DATA_MARKET_SIZE),
+    ('all_products', DATA_ALL_PRODUCTS),
+    ('data_fr',     DATA_REVENUE_FR),
+    ('data_intl',   DATA_REVENUE_INTL),
+]
+
+
 @app.route('/file_status')
 def file_status():
     try:
         files_info = {}
         warnings   = []
-        for key, path in [('cagr', DATA_CAGR_MAPPER), ('market', DATA_MARKET_SIZE)]:
+        for key, path in TRACKED_FILES:
             if os.path.exists(path):
                 stat     = os.stat(path)
                 mod_time = datetime.fromtimestamp(stat.st_mtime)
                 days_old = (datetime.now() - mod_time).days
                 try:
-                    df = pd.read_excel(path)
+                    if key == 'cagr_svp':
+                        # Multi-sheet workbook: count rows across every
+                        # relevant (non MIF*/GLOBAL*) sheet.
+                        xls  = pd.ExcelFile(path)
+                        rows = sum(
+                            len(pd.read_excel(path, sheet_name=s, skiprows=2))
+                            for s in xls.sheet_names
+                            if not s.startswith('MIF') and 'GLOBAL' not in s
+                        )
+                    else:
+                        rows = len(pd.read_excel(path))
                     files_info[key] = {
                         'modified': mod_time.strftime('%Y-%m-%d %H:%M'),
-                        'rows': len(df),
+                        'rows': rows,
                         'size': f"{stat.st_size / 1024:.1f} KB",
                         'days_old': days_old
                     }
@@ -260,8 +284,8 @@ def file_history():
     try:
         history = []
         backup_dirs = {
-            'cagr':   os.path.join(DATA_DIR, 'backups', 'cagr'),
-            'market': os.path.join(DATA_DIR, 'backups', 'market')
+            file_type: os.path.join(DATA_DIR, 'backups', file_type)
+            for file_type, _ in TRACKED_FILES
         }
         for file_type, backup_dir in backup_dirs.items():
             if os.path.exists(backup_dir):
@@ -269,7 +293,7 @@ def file_history():
                     filepath = os.path.join(backup_dir, filename)
                     if os.path.isfile(filepath):
                         try:
-                            df       = pd.read_excel(filepath)
+                            df       = pd.read_excel(filepath, sheet_name=0)
                             stat     = os.stat(filepath)
                             mod_time = datetime.fromtimestamp(stat.st_mtime)
                             history.append({
@@ -357,23 +381,78 @@ def upload_file():
         if not file_type:     return jsonify({'error': 'File type not specified'}), 400
         file_bytes = uploaded_file.read()
         uploaded_file.seek(0)
-        df = pd.read_excel(uploaded_file)
-        if file_type == 'cagr':
-            required = ['catégorie','Sub-segment 2','Segment','pr_offer']
-            missing  = [c for c in required if c not in df.columns]
-            if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
-            target_path = DATA_CAGR_MAPPER
+
+        if file_type == 'cagr_svp':
+            # Multi-sheet workbook: category hierarchy source for the new
+            # Rep_Code → catégorie → ID mapper. Validate that at least one
+            # relevant (non MIF*/GLOBAL*) sheet has a 'catégorie' column
+            # once the 2 header rows are skipped.
+            try:
+                xls = pd.ExcelFile(uploaded_file)
+            except Exception:
+                return jsonify({'error': 'Could not read workbook'}), 400
+            relevant_sheets = [s for s in xls.sheet_names
+                              if not s.startswith("MIF") and "GLOBAL" not in s]
+            if not relevant_sheets:
+                return jsonify({'error': 'No relevant sheets found (all sheets are MIF/GLOBAL)'}), 400
+            df = None
+            for sheet in relevant_sheets:
+                uploaded_file.seek(0)
+                df_sheet = pd.read_excel(uploaded_file, sheet_name=sheet, skiprows=2)
+                if 'catégorie' in df_sheet.columns:
+                    df = df_sheet
+                    break
+            if df is None:
+                return jsonify({'error': "Missing 'catégorie' column in CAGR SVP sheets"}), 400
+            target_path = DATA_CAGR_SVP
+
         elif file_type == 'market':
-            required = ['Year','Million EUR']
+            uploaded_file.seek(0)
+            sheet_names = pd.ExcelFile(uploaded_file).sheet_names
+            uploaded_file.seek(0)
+            if 'DATA BASE MARKET FORECAST' in sheet_names:
+                df = pd.read_excel(uploaded_file, sheet_name='DATA BASE MARKET FORECAST', skiprows=5)
+            else:
+                df = pd.read_excel(uploaded_file)
+            required = ['Year','Million EUR','ID']
             missing  = [c for c in required if c not in df.columns]
             if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
             target_path = DATA_MARKET_SIZE
+
+        elif file_type == 'all_products':
+            df = pd.read_excel(uploaded_file)
+            df.columns = df.columns.str.strip()
+            cols_lower = [c.lower() for c in df.columns]
+            required   = ['rep_code', 'offer']
+            missing    = [c for c in required if c not in cols_lower]
+            if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
+            target_path = DATA_ALL_PRODUCTS
+
+        elif file_type in ('data_fr', 'data_intl'):
+            df = pd.read_excel(uploaded_file)
+            required = ['Offer','Period','_S_Revenue_actual']
+            missing  = [c for c in required if c not in df.columns]
+            if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
+            target_path = DATA_REVENUE_FR if file_type == 'data_fr' else DATA_REVENUE_INTL
+
         else:
             return jsonify({'error': 'Invalid file type'}), 400
+
         if os.path.exists(target_path):
             backup_old_file(file_type, target_path)
         with open(target_path, 'wb') as f:
             f.write(file_bytes)
+
+        # Regenerate the combined data.xlsx whenever a regional revenue
+        # file changes.
+        if file_type in ('data_fr', 'data_intl'):
+            combine_revenue_files()
+
+        # Rebuild the Rep_Code/catégorie/ID mapper whenever one of its
+        # three source files changes.
+        if file_type in ('cagr_svp', 'all_products', 'market'):
+            build_category_mapper(force_rebuild=True)
+
         global revenue_years, market_size_years, df_all_data
         revenue_years     = load_revenue_data()
         market_size_years = load_market_size_years()
@@ -387,8 +466,7 @@ def upload_file():
 
 def backup_old_file(file_type, source_path):
     try:
-        backup_dir = os.path.join(DATA_DIR, 'backups',
-                                  'cagr' if file_type == 'cagr' else 'market')
+        backup_dir = os.path.join(DATA_DIR, 'backups', file_type)
         os.makedirs(backup_dir, exist_ok=True)
         timestamp   = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_path = os.path.join(backup_dir, f'backup_{timestamp}.xlsx')

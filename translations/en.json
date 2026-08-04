@@ -30,10 +30,10 @@
     "session_cagr": "+ Session CAGR",
     "hide_chart": "▲ Hide Chart",
     "show_chart": "▼ Show Chart",
-    "kpi_selected_offer_cagr_mif": "Selected Offer CAGR MIF",
-    "kpi_selected_offer_cagr_bl": "Selected Offer CAGR BL",
-    "kpi_cagr_actual_interval": "CAGR of real interval of selected SVP/CVP",
-    "kpi_cagr_actual_interval_offer": "CAGR of real interval of selected Offers",
+    "kpi_selected_offer_cagr_mif": "Selected Offer(s) CAGR MIF",
+    "kpi_selected_offer_cagr_bl": "Selected Offer(s) CAGR BL",
+    "kpi_cagr_actual_interval": "Global Selected SVPs/CVP(s)",
+    "kpi_cagr_actual_interval_offer": "selected Offer(s)",
     "kpi_avg_cagr_mif": "Avg CAGR MIF",
     "kpi_total_cagr_mif": "CAGR MIF SVP/CVP",
     "kpi_avg_cagr_bl": "Avg CAGR BL",
@@ -92,7 +92,10 @@
     "tooltip_r2_desc": "Coefficient of determination between real and predicted revenue, over years after the prediction start year.",
     "tooltip_smape_desc": "Symmetric mean absolute percentage error between real and predicted revenue, over years after the prediction start year.",
     "tooltip_avg_cagr_desc": "Average MIF CAGR of all individual offers, each calculated from market size values.",
-    "tooltip_total_cagr_desc": "CAGR of the TOTAL row across the CAGR interval, calculated from market size values."
+    "tooltip_total_cagr_desc": "CAGR of the TOTAL row across the CAGR interval, calculated from market size values.",
+    "kpi_group_actual": "Actual CAGR",
+    "kpi_group_mif": "Projected CAGR — MIF View",
+    "kpi_group_bl": "Projected CAGR — BL View"
   },
   "files": {
     "title": "File Management",

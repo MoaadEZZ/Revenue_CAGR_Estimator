@@ -5,12 +5,13 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from pipeline import *
 from pipeline import (
-    DATA_CAGR_SVP, DATA_MARKET_SIZE, DATA_ALL_PRODUCTS,
+    DATA_CAGR_SVP, DATA_MARKET_SIZE, DATA_ALL_PRODUCTS, DATA_MARKET_HIERARCHIES,
     DATA_REVENUE_FR, DATA_REVENUE_INTL,
     build_category_mapper, combine_revenue_files,
 )
 import json
 import os
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -237,6 +238,7 @@ TRACKED_FILES = [
     ('cagr_svp',    DATA_CAGR_SVP),
     ('market',      DATA_MARKET_SIZE),
     ('all_products', DATA_ALL_PRODUCTS),
+    ('market_hierarchies', DATA_MARKET_HIERARCHIES),
     ('data_fr',     DATA_REVENUE_FR),
     ('data_intl',   DATA_REVENUE_INTL),
 ]
@@ -326,6 +328,15 @@ def upload_custom_cagr():
         df.columns = df.columns.str.strip()
         offer_col = next((c for c in df.columns if c.lower() == 'offer'), None)
         cagr_col  = next((c for c in df.columns if c.lower() == 'cagr'),  None)
+        if not cagr_col:
+            # Also accept a 'CAGR 20XX/20YY' style header (the BL CAGR's
+            # own period); pipeline.load_custom_cagr() extracts the years
+            # from this and renames it back to 'CAGR' when reading it.
+            cagr_col = next(
+                (c for c in df.columns
+                 if re.search(r'cagr.*?\d{4}\s*/\s*\d{4}', c, re.IGNORECASE)),
+                None
+            )
         if not offer_col or not cagr_col:
             return jsonify({'error': f'Missing columns. Found: {", ".join(df.columns)}'}), 400
         valid_count = sum(
@@ -414,7 +425,10 @@ def upload_file():
                 df = pd.read_excel(uploaded_file, sheet_name='DATA BASE MARKET FORECAST', skiprows=5)
             else:
                 df = pd.read_excel(uploaded_file)
-            required = ['Year','Million EUR','ID']
+            # 'ID' is no longer required — Million EUR is now joined on the
+            # (Segment, Sub-segment 1-3, Region) hierarchy directly instead
+            # of a Market Sizing 'ID' column (see mapping.py).
+            required = ['Year','Million EUR','Region','Segment']
             missing  = [c for c in required if c not in df.columns]
             if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
             target_path = DATA_MARKET_SIZE
@@ -427,6 +441,20 @@ def upload_file():
             missing    = [c for c in required if c not in cols_lower]
             if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
             target_path = DATA_ALL_PRODUCTS
+
+        elif file_type == 'market_hierarchies':
+            # Pre-identified catégorie -> Segment/Sub-segment lookup table,
+            # used directly (exact-match join, no semantic/fuzzy matching)
+            # to fill in each Rep_Code's Segment/Sub-segment hierarchy.
+            try:
+                df = pd.read_excel(uploaded_file, sheet_name='Sheet1')
+            except Exception:
+                return jsonify({'error': "Could not read 'Sheet1' from workbook"}), 400
+            required = ['catégorie (ID)', 'Segment_FR', 'Sub-segment 1_FR',
+                        'Sub-segment 2_FR', 'Sub-segment 3_FR']
+            missing  = [c for c in required if c not in df.columns]
+            if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
+            target_path = DATA_MARKET_HIERARCHIES
 
         elif file_type in ('data_fr', 'data_intl'):
             df = pd.read_excel(uploaded_file)
@@ -448,9 +476,9 @@ def upload_file():
         if file_type in ('data_fr', 'data_intl'):
             combine_revenue_files()
 
-        # Rebuild the Rep_Code/catégorie/ID mapper whenever one of its
-        # three source files changes.
-        if file_type in ('cagr_svp', 'all_products', 'market'):
+        # Rebuild the Rep_Code/catégorie/Segment mapper whenever one of
+        # its source files changes.
+        if file_type in ('cagr_svp', 'all_products', 'market_hierarchies'):
             build_category_mapper(force_rebuild=True)
 
         global revenue_years, market_size_years, df_all_data

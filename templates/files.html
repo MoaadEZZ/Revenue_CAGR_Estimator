@@ -500,7 +500,7 @@
             <div class="validation-info">
                 <h4 data-i18n="files.required_format">Required Format</h4>
                 <p style="color: var(--text-muted); margin: 0;">
-                    <strong data-i18n="files.columns_label">Columns:</strong> <code>Offer</code>, <code>CAGR</code>
+                    <strong data-i18n="files.columns_label">Columns:</strong> <code>Offer</code>, <code>CAGR 20XX/20YY</code>
                 </p>
                 <p style="color: var(--text-muted); margin: 4px 0 0 0; font-size: 0.75rem;">
                     <span data-i18n="files.custom_cagr_format">CAGR values should be decimal (e.g., 0.05 for 5%) or percentage (e.g., 5%)</span>
@@ -703,12 +703,12 @@ const FILE_TYPES = {
     },
     data_fr: {
         name: 'Data (France)',
-        requiredColumns: ['Offer', 'Period', '_S_Revenue_actual'],
+        requiredColumns: ['rep_code', 'Offer', 'Period', '_S_Revenue_actual'],
         description: 'France revenue data — combined with International into data.xlsx (Region = FR)'
     },
     data_intl: {
         name: 'Data (International)',
-        requiredColumns: ['Offer', 'Period', '_S_Revenue_actual'],
+        requiredColumns: ['rep_code', 'Offer', 'Period', '_S_Revenue_actual'],
         description: 'International revenue data — combined with France into data.xlsx (Region = INT)'
     }
 };

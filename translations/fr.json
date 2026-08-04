@@ -32,8 +32,8 @@
     "show_chart": "▼ Afficher le graphique",
     "kpi_selected_offer_cagr_mif": "CAGR MIF de l'offre sélectionnée",
     "kpi_selected_offer_cagr_bl": "CAGR BL de l’offre sélectionnée",
-    "kpi_cagr_actual_interval": "CAGR de l’intervalle réel de(s) SVP/CVP selectionnée(s)",
-    "kpi_cagr_actual_interval_offer": "CAGR de l’intervalle réel de(s) Offre(s) selectionnée(s)",
+    "kpi_cagr_actual_interval": "SVP/CVP selectionnée(s) Global",
+    "kpi_cagr_actual_interval_offer": "Offre(s) selectionnée(s)",
     "kpi_avg_cagr": "CAGR moyen du MIF",
     "kpi_total_cagr": "CAGR SVP/CVP du MIF",
     "kpi_avg_cagr_mif": "CAGR moyen du MIF",
@@ -92,7 +92,10 @@
     "tooltip_r2_desc": "Coefficient de détermination entre le revenu réel et prédit, sur les années postérieures à l’année de début de prédiction.",
     "tooltip_smape_desc": "Erreur absolue moyenne en pourcentage symétrique entre le revenu réel et prédit, sur les années postérieures à l’année de début de prédiction.",
     "tooltip_avg_cagr_desc": "CAGR MIF moyen de toutes les offres individuelles, chacun calculé à partir des valeurs de taille de marché.",
-    "tooltip_total_cagr_desc": "CAGR de la ligne TOTAL sur l’intervalle CAGR, calculé à partir des valeurs de taille de marché."
+    "tooltip_total_cagr_desc": "CAGR de la ligne TOTAL sur l’intervalle CAGR, calculé à partir des valeurs de taille de marché.",
+    "kpi_group_actual": "CAGR réel",
+    "kpi_group_mif": "CAGR projeté — Vue MIF",
+    "kpi_group_bl": "CAGR projeté — Vue BL"
   },
   "files": {
     "title": "Gestion des fichiers",

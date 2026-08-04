@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import re
 from io import BytesIO
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -11,7 +12,13 @@ from mapping import (
     DATA_CAGR_SVP,
     DATA_MARKET_SIZE,
     DATA_ALL_PRODUCTS,
+    DATA_MARKET_HIERARCHIES,
     build_category_mapper,
+    normalize_region_label,
+    clean_segment_cell,
+    SEGMENT_LEVEL_COLS,
+    REGION_FR,
+    REGION_INTL,
 )
 
 
@@ -77,22 +84,51 @@ def load_revenue_data():
         return []
 
 
+# Matches a "CAGR 20XX/20YY" (or "CAGR 20XX / 20YY") style header and
+# captures the two years, so the BL CAGR period can be read straight off
+# the column name instead of requiring a plain "CAGR" header.
+CUSTOM_CAGR_YEAR_PATTERN = re.compile(r'cagr.*?(\d{4})\s*/\s*(\d{4})', re.IGNORECASE)
+
+
 def load_custom_cagr():
+    """
+    Loads the custom (BL) CAGR file.
+
+    The 'CAGR' column may instead be named 'CAGR 20XX/20YY' (the period the
+    BL CAGR was computed over). When that's the case, the years are
+    extracted and the column is renamed back to 'CAGR' — but only on the
+    in-memory dataframe; the original file on disk is left untouched.
+
+    Returns a tuple: (custom_cagr_dict, bl_cagr_start_year, bl_cagr_end_year).
+    All three are None when no valid custom CAGR file/data is found.
+    """
     try:
         filepath = os.path.join(DATA_DIR, 'custom_cagr.xlsx')
         if not os.path.exists(filepath):
             print("No custom CAGR file found")
-            return None
+            return None, None, None
         df = pd.read_excel(filepath)
         df.columns = df.columns.str.strip().str.title()
+
         offer_col = None
         cagr_col  = None
+        bl_start_year = None
+        bl_end_year   = None
         for col in df.columns:
-            if col.lower() == 'offer': offer_col = col
-            elif col.lower() == 'cagr': cagr_col = col
-        if not offer_col or not cagr_col:
-            print(f"⚠ Custom CAGR: Missing required columns. Found: {list(df.columns)}")
-            return None
+            if col.lower() == 'offer':
+                offer_col = col
+            elif col.lower().startswith('cagr'):
+                cagr_col = col
+
+        # Rename the CAGR-with-years column back to plain 'CAGR' on the
+        # working dataframe only — the file on disk is never modified.
+        if cagr_col != 'Cagr':
+            years_cagr = cagr_col.split(' ')[1]
+            bl_start_year = years_cagr.split('/')[0]
+            bl_end_year = years_cagr.split('/')[1]
+            df = df.rename(columns={cagr_col: 'Cagr'})
+            cagr_col = 'Cagr'
+
         custom_cagr_dict = {}
         skipped_count = 0
         for idx, row in df.iterrows():
@@ -108,12 +144,13 @@ def load_custom_cagr():
             except ValueError:
                 skipped_count += 1; continue
         if custom_cagr_dict:
-            print(f"✓ Custom CAGR loaded: {len(custom_cagr_dict)} offers")
-            return custom_cagr_dict
-        return None
+            yr_info = f" ({bl_start_year}/{bl_end_year})" if bl_start_year and bl_end_year else ""
+            print(f"✓ Custom CAGR loaded{yr_info}: {len(custom_cagr_dict)} offers")
+            return custom_cagr_dict, bl_start_year, bl_end_year
+        return None, None, None
     except Exception as e:
         print(f"✗ Error loading custom CAGR: {e}")
-        return None
+        return None, None, None
 
 
 def load_market_size_years():
@@ -129,24 +166,28 @@ def load_market_size_years():
 
 
 def load_category_mapper(force_rebuild=False):
-    """Rep_Code-level category mapper: Rep_Code / catégorie / ID, built by
+    """Rep_Code-level category mapper: Rep_Code / catégorie / Segment /
+    Sub-segment 1-3 (separately for FR and INT — see mapping.py), built by
     combining the hierarchical Rep_Code→catégorie matching (CAGR SVP + All
-    Products) with the semantic catégorie→ID matching (Market Size). See
-    mapping.py. Returned columns are renamed to match this pipeline's
-    conventions: Market_Category (was catégorie), Rep_Code, ID."""
+    Products) with the semantic catégorie→segment matching (Market Size),
+    run per region. Returned columns are renamed to match this pipeline's
+    conventions: Market_Category (was catégorie), Rep_Code,
+    {Segment,Sub-segment 1-3}_{FR,INT}."""
     try:
         mapper = build_category_mapper(force_rebuild=force_rebuild)
         if mapper is None or mapper.empty:
             return None
         mapper = mapper.rename(columns={'catégorie': 'Market_Category'})
         mapper['Market_Category'] = mapper['Market_Category'].fillna('').astype(str).str.rstrip()
-        mapper['ID']              = mapper['ID'].fillna('').astype(str).str.rstrip()
-        for seg_col in ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3']:
-            if seg_col in mapper.columns:
-                mapper[seg_col] = mapper[seg_col].fillna('---').astype(str).str.rstrip()
+        region_seg_cols = [f"{c}_{r}" for r in (REGION_FR, REGION_INTL) for c in SEGMENT_LEVEL_COLS]
+        for col in region_seg_cols:
+            if col in mapper.columns:
+                mapper[col] = mapper[col].apply(clean_segment_cell)
+        has_fr  = (mapper[f'Segment_{REGION_FR}']   != '---').sum() if f'Segment_{REGION_FR}'   in mapper.columns else 0
+        has_int = (mapper[f'Segment_{REGION_INTL}'] != '---').sum() if f'Segment_{REGION_INTL}' in mapper.columns else 0
         print(f"✓ Category Mapper: {len(mapper)} Rep_Codes "
               f"({(mapper['Market_Category'] != '').sum()} with catégorie, "
-              f"{(mapper['ID'] != '').sum()} with ID)")
+              f"{has_fr} with a France segment, {has_int} with an International segment)")
         return mapper
     except Exception as e:
         print(f"Error loading category mapper: {e}")
@@ -228,7 +269,7 @@ def load_all_data():
         if multi_bl_offers:
             print(f"  ⚠ {len(multi_bl_offers)} offers have more than one Business_Line")
 
-        # ── Category mapper (Rep_Code → catégorie → ID) ──
+        # ── Category mapper (Rep_Code → catégorie → Segment/Sub-segment, by region) ──
         # Built from CAGR SVP (hierarchical match, test1.py idea) + Market
         # Size (semantic match, test2.py idea). See mapping.py.
         print(f"\n📋 Loading Category Mapper...")
@@ -238,10 +279,10 @@ def load_all_data():
         print(f"  ✓ Loaded {len(df_repcode_mapper)} Rep_Codes")
 
         # Roll the Rep_Code-level mapper up to Offer level (first non-empty
-        # catégorie/ID per Offer wins) so the existing Offer-level
-        # pivot/merge machinery below keeps working. Rep_Code-level detail
-        # itself is only needed for revenue splitting, which already
-        # happens separately via detailed_revenue in resultat_data().
+        # value per Offer wins) so the existing Offer-level pivot/merge
+        # machinery below keeps working. Rep_Code-level detail itself is
+        # only needed for revenue splitting, which already happens
+        # separately via detailed_revenue in resultat_data().
         if 'Rep_Code' in df_prod.columns:
             df_repcode_mapper = df_repcode_mapper.merge(
                 df_prod[['Rep_Code', 'Offer_Clean']].drop_duplicates(subset=['Rep_Code']),
@@ -255,16 +296,12 @@ def load_all_data():
             vals = [v for v in s if v not in (None, '', 'nan', '---')]
             return vals[0] if vals else ''
 
-        # Roll up every column the mapper produced (catégorie/ID plus the
-        # Segment / Sub-segment 1-3 hierarchy), not just Market_Category
-        # and ID — previously the .agg() only named those two, which
-        # silently dropped the segment columns even when mapping.py had
-        # already computed them.
-        segment_cols = [c for c in ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3']
-                        if c in df_repcode_mapper.columns]
-        agg_spec = {'Market_Category': ('Market_Category', _first_nonempty),
-                    'ID': ('ID', _first_nonempty)}
-        for col in segment_cols:
+        # Roll up every column the mapper produced (catégorie plus the
+        # per-region Segment / Sub-segment 1-3 hierarchy: *_FR and *_INT).
+        region_segment_cols = [f"{c}_{r}" for r in (REGION_FR, REGION_INTL) for c in SEGMENT_LEVEL_COLS
+                                if f"{c}_{r}" in df_repcode_mapper.columns]
+        agg_spec = {'Market_Category': ('Market_Category', _first_nonempty)}
+        for col in region_segment_cols:
             agg_spec[col] = (col, _first_nonempty)
 
         df_mapper = (
@@ -274,7 +311,7 @@ def load_all_data():
             .rename(columns={'Offer_Clean': 'Offer'})
         )
         print(f"  ✓ Rolled up to {len(df_mapper)} offers "
-              f"(segment columns carried through: {segment_cols or 'none'})")
+              f"(segment columns carried through: {region_segment_cols or 'none'})")
 
         df_mapper['SVP']           = df_mapper['Offer'].map(offer_to_svp).fillna('Unknown')
         df_mapper['CVP']           = df_mapper['Offer'].map(offer_to_cvp).fillna('Unknown')
@@ -286,22 +323,34 @@ def load_all_data():
         print(f"\n📈 Loading Market Size...")
         df_ms = pd.read_excel(DATA_MARKET_SIZE,
                               sheet_name="DATA BASE MARKET FORECAST", skiprows=5)
-        id_col = next((c for c in df_ms.columns if str(c).strip().lower() == 'id'), None)
-        if id_col is None:
-            print(f"  ✗ Market Size file has no 'ID' column"); return None
-        df_ms = df_ms.rename(columns={id_col: 'ID'})
-        df_ms = df_ms[["ID","Year","Million EUR"]].copy()
-        df_ms["ID"] = df_ms["ID"].astype(str).str.rstrip()
-        df_ms = df_ms.dropna(subset=["ID","Year","Million EUR"])
-        df_ms = df_ms.groupby(["ID","Year"], as_index=False).agg({"Million EUR":"sum"})
+        # ── Market size (pivoted on Segment/Sub-segment hierarchy + Region) ──
+        # Previously this was pivoted on a Market Sizing 'ID' column and
+        # joined to offers on that ID. That's been replaced with a direct
+        # join on the (Segment, Sub-segment 1-3, Region) tuple: 'ID' isn't
+        # guaranteed unique per segment/region in the source workbook, and
+        # when it wasn't, grouping Million EUR by ID silently summed
+        # unrelated rows together — producing inflated market-size figures
+        # (e.g. a sub-segment showing ~1900 M€ when the source file only
+        # supports ~140 M€ for it). Region is included in the key because
+        # France and International carry different Million EUR figures for
+        # what's conceptually the same segment tree.
+        ms_seg_cols = [c for c in SEGMENT_LEVEL_COLS if c in df_ms.columns]
+        if not ms_seg_cols or 'Region' not in df_ms.columns:
+            print(f"  ✗ Market Size file missing Segment/Sub-segment or Region columns"); return None
+        df_ms = df_ms[[*ms_seg_cols, "Region", "Year", "Million EUR"]].copy()
+        for c in ms_seg_cols:
+            df_ms[c] = df_ms[c].apply(clean_segment_cell)
+        df_ms['Region'] = df_ms['Region'].apply(normalize_region_label)
+        df_ms = df_ms.dropna(subset=["Region", "Year", "Million EUR"])
+        df_ms = df_ms.groupby([*ms_seg_cols, "Region", "Year"], as_index=False).agg({"Million EUR":"sum"})
         df_ms['Year'] = df_ms['Year'].astype(int)
         df_ms_pivot = df_ms.pivot_table(
-            index=["ID"], columns="Year",
+            index=[*ms_seg_cols, "Region"], columns="Year",
             values="Million EUR", fill_value=0).reset_index()
         df_ms_pivot.columns = [
             f"Million EUR_{c}" if isinstance(c, int) else c
             for c in df_ms_pivot.columns]
-        print(f"  ✓ Pivoted to {len(df_ms_pivot)} market IDs")
+        print(f"  ✓ Pivoted to {len(df_ms_pivot)} segment/region combinations")
 
         # ── Revenue ──
         print(f"\n💰 Loading Revenue data...")
@@ -342,26 +391,34 @@ def load_all_data():
         df = df_rev_piv.merge(df_mapper, on='Offer', how='left')
         missing_offers = df[df['Market_Category'].isna() | (df['Market_Category'] == '')]['Offer'].tolist()
 
+        # Each revenue row already carries its own Region (FR/INT). Resolve
+        # the single Segment/Sub-segment 1-3 hierarchy to use for that row
+        # by picking the matching _FR or _INT column the mapper produced —
+        # this is what makes market size region-aware end to end.
+        for seg_col in SEGMENT_LEVEL_COLS:
+            fr_col, int_col = f"{seg_col}_{REGION_FR}", f"{seg_col}_{REGION_INTL}"
+            fr_series  = df[fr_col]  if fr_col  in df.columns else pd.Series('---', index=df.index)
+            int_series = df[int_col] if int_col in df.columns else pd.Series('---', index=df.index)
+            df[seg_col] = np.where(df['Region'] == REGION_FR, fr_series, int_series)
+            df[seg_col] = pd.Series(df[seg_col], index=df.index).apply(clean_segment_cell)
+
         # Clean categoricals
-        categorical_cols = ['SVP', 'CVP', 'Market_Category', 'ID',
+        categorical_cols = ['SVP', 'CVP', 'Market_Category',
                             'Business_Line', 'Domain', 'Product', 'Rep_Code',
-                            'Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3']
+                            *SEGMENT_LEVEL_COLS]
         for col in categorical_cols:
             if col in df.columns:
                 df[col] = df[col].fillna('---').replace('nan','---')
                 df[col] = df[col].astype(str).str.replace('nan','---')
 
-        million_eur_cols = [c for c in df.columns if c.startswith('Million EUR_')]
-        for col in million_eur_cols:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         revenue_cols = [c for c in df.columns if c.startswith('Revenue_')]
         for col in revenue_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-        df = df.merge(df_ms_pivot, on='ID', how='left')
+        df = df.merge(df_ms_pivot, on=[*ms_seg_cols, 'Region'], how='left')
+        million_eur_cols = [c for c in df.columns if c.startswith('Million EUR_')]
         for col in million_eur_cols:
-            if col in df.columns:
-                df[col] = df[col].fillna(0)
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
         df.attrs['detailed_revenue']     = df_rev_detailed
         df.attrs['missing_offers']       = missing_offers
@@ -433,11 +490,15 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
         print(f"{'='*60}")
 
         # Load custom CAGR if requested
-        custom_cagr_dict = None
+        custom_cagr_dict   = None
+        bl_cagr_start_year = None
+        bl_cagr_end_year   = None
         if use_custom_cagr in ('yes', 'both'):
-            custom_cagr_dict = load_custom_cagr()
+            custom_cagr_dict, bl_cagr_start_year, bl_cagr_end_year = load_custom_cagr()
             if custom_cagr_dict:
-                print(f"\n📊 Applying custom CAGR (BL) to {len(custom_cagr_dict)} offers\n")
+                yr_info = f" ({bl_cagr_start_year}/{bl_cagr_end_year})" \
+                    if bl_cagr_start_year and bl_cagr_end_year else ""
+                print(f"\n📊 Applying custom CAGR (BL){yr_info} to {len(custom_cagr_dict)} offers\n")
 
         if not selected_svps and not selected_cvps:
             return {'error': 'Please select at least one SVP or CVP category'}
@@ -451,19 +512,25 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             if selected_cvps else pd.Series(False, index=df_all_data.index)
         df = df_all_data[svp_mask | cvp_mask].copy()
 
-        # Category-assignment filter: filters on whether a catégorie/ID
-        # was successfully assigned (Segment/Sub-segment 1-3 are now
-        # carried through separately as display-only columns).
+        # Sub-segment filter: filters on whether a Market Sizing segment
+        # was successfully assigned via the semantic match, for this row's
+        # own region (Segment/Sub-segment 1-3 were already resolved to the
+        # FR or INT variant per-row in load_all_data, based on each row's
+        # Region) — filtering on Market_Category (catégorie) instead was
+        # wrong, since catégorie comes from the separate hierarchical
+        # match and can be set even when the semantic match to Market
+        # Sizing failed (leaving Segment, and the rest of the hierarchy,
+        # blank).
         if subseg_filter == 'with_subseg':
-            df = df[df['Market_Category'].notna() &
-                    (df['Market_Category'] != '---') &
-                    (df['Market_Category'] != 'nan') &
-                    (df['Market_Category'] != '')]
+            df = df[df['Segment'].notna() &
+                    (df['Segment'] != '---') &
+                    (df['Segment'] != 'nan') &
+                    (df['Segment'] != '')]
         elif subseg_filter == 'no_subseg':
-            df = df[df['Market_Category'].isna() |
-                    (df['Market_Category'] == '---') |
-                    (df['Market_Category'] == 'nan') |
-                    (df['Market_Category'] == '')]
+            df = df[df['Segment'].isna() |
+                    (df['Segment'] == '---') |
+                    (df['Segment'] == 'nan') |
+                    (df['Segment'] == '')]
 
         if region == 'France':
             df = df[df['Region'] == 'FR']
@@ -526,20 +593,61 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
         last_rev_year = rev_years[-1] if rev_years else display_start_year
         all_display_years = list(range(display_start_year, display_end_year + 1))
 
+        # ── "Real"/actual interval bounds — ALWAYS the true first/last
+        # historical revenue years (from data.xlsx), regardless of the
+        # display_start_year/display_end_year the person has chosen. These
+        # are used for the "CAGR of Actual Interval" KPIs (both per-offer
+        # and TOTAL). Deliberately independent of the display window: the
+        # display interval only controls which years are *shown*, not
+        # which years the real-CAGR calculation is anchored to — anchoring
+        # it to display_start_year instead (the old behavior) meant that
+        # once the person moved the display window past the true first
+        # revenue year, that year's Revenue_ column stopped being emitted
+        # at all, and the CAGR calculation would silently fall back to a
+        # near-zero start value and blow up (e.g. 2.5% turning into 1000%).
+        real_start_year = rev_years[0]  if rev_years else None
+        real_end_year   = rev_years[-1] if rev_years else None
+
+        def _actual_interval_cagr(bounds):
+            if real_start_year is None or real_end_year is None or real_start_year == real_end_year:
+                return 0
+            return calculate_cagr(bounds.get(real_start_year, 0.0),
+                                   bounds.get(real_end_year, 0.0),
+                                   real_end_year - real_start_year)
+
         # ── CAGR column names ──
         mif_cagr_col_name = f'MIF_CAGR_{cagr_start_year}/{cagr_end_year}'
-        bl_cagr_col_name  = 'BL_CAGR'   # shown when use_custom_cagr in (yes, both)
+        # shown when use_custom_cagr in (yes, both); suffixed with the BL
+        # CAGR's own period when known (it can differ from the MIF period)
+        bl_cagr_col_name  = f'BL_CAGR_{bl_cagr_start_year}/{bl_cagr_end_year}' \
+            if bl_cagr_start_year and bl_cagr_end_year else 'BL_CAGR'
 
         results_list = []
         cagr_values  = []
         _cagr_seen_offers = set()
+        # Market size (Million EUR) is a property of the Market Sizing
+        # Segment/Sub-segment hierarchy (within a region), not of the
+        # offer/rep-code — several offers (or, at rep_code aggregation,
+        # several rep-codes of one offer) can share the same segment.
+        # Track which (Segment, Sub-segment 1-3, Region) combos have
+        # already been counted so the TOTAL row sums each market segment
+        # once instead of once per row.
+        _market_size_seen_keys = set()
 
         tot_actual    = {y: 0.0 for y in all_display_years}
         tot_real_post = {y: 0.0 for y in all_display_years}
         # For 'both' mode we track two prediction totals
         tot_predicted_mif = {y: 0.0 for y in all_display_years}
         tot_predicted_bl  = {y: 0.0 for y in all_display_years}
+        tot_million_eur   = {y: 0.0 for y in all_display_years}
         has_real_post     = {y: False for y in all_display_years}
+
+        # Real/actual-interval revenue totals, tracked separately from
+        # tot_actual (which is keyed by all_display_years and therefore
+        # blind to years outside the display window) — see comment above.
+        tot_actual_bounds    = {real_start_year: 0.0, real_end_year: 0.0} \
+            if real_start_year is not None else {}
+        _offer_actual_bounds = {}   # offer -> {real_start_year: sum, real_end_year: sum}
 
         for _, row in df.iterrows():
             offer           = row['Offer']
@@ -586,6 +694,37 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
                     v = row[col]
                     actual[y] = float(v) if not pd.isna(v) else 0.0
 
+            # Accumulate real-interval bounds (true first/last historical
+            # revenue years), independent of the display window.
+            if real_start_year is not None:
+                sv = actual.get(real_start_year, 0.0)
+                ev = actual.get(real_end_year, 0.0)
+                tot_actual_bounds[real_start_year] += sv
+                tot_actual_bounds[real_end_year]   += ev
+                ob = _offer_actual_bounds.setdefault(
+                    offer, {real_start_year: 0.0, real_end_year: 0.0})
+                ob[real_start_year] += sv
+                ob[real_end_year]   += ev
+
+            # Market size (Million EUR of MIF), per display year
+            market_key = (
+                row.get('Segment', '---'), row.get('Sub-segment 1', '---'),
+                row.get('Sub-segment 2', '---'), row.get('Sub-segment 3', '---'),
+                row.get('Region', '---'),
+            )
+            ms_year_vals = {}
+            for y in all_display_years:
+                msc = f"Million EUR_{y}"
+                if msc in row.index:
+                    v = row[msc]
+                    ms_year_vals[y] = float(v) if not pd.isna(v) else 0.0
+            count_ms_in_total = (
+                market_key[0] not in (None, '', '---', 'nan') and
+                market_key not in _market_size_seen_keys
+            )
+            if count_ms_in_total:
+                _market_size_seen_keys.add(market_key)
+
             seed_y = pred_start_year
             seed_v = actual.get(seed_y, None)
             if seed_v is None:
@@ -601,6 +740,10 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             result_row['Market_Category'] = market_category
             result_row['Business_Line']   = business_line
             result_row['Domain']          = domain
+            result_row['Segment']         = row.get('Segment', '---')
+            result_row['Sub-segment 1']   = row.get('Sub-segment 1', '---')
+            result_row['Sub-segment 2']   = row.get('Sub-segment 2', '---')
+            result_row['Sub-segment 3']   = row.get('Sub-segment 3', '---')
             if product  is not None: result_row['Product']  = product
             if rep_code is not None: result_row['Rep_code'] = rep_code
 
@@ -662,6 +805,15 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
                             tot_real_post[y] += act_val
                             has_real_post[y]  = True
 
+                # Market size (Million EUR of MIF) — shown on every row
+                # (each row displays its own market segment's size), but
+                # only rolled into the TOTAL once per unique (Segment,
+                # Sub-segment 1-3, Region) combination.
+                if y in ms_year_vals:
+                    result_row[f'Million EUR_{y}'] = f"{ms_year_vals[y]:,.2f}"
+                    if count_ms_in_total:
+                        tot_million_eur[y] += ms_year_vals[y]
+
             results_list.append(result_row)
 
         # ── Rep-Code → Offer roll-up ──────────────────────────────────────
@@ -714,6 +866,8 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             else:
                 if any(f'Predicted_{y}' in r for r in results_list):
                     year_cols.append(f'Predicted_{y}')
+            if any(f'Million EUR_{y}' in r for r in results_list):
+                year_cols.append(f'Million EUR_{y}')
 
         if selected_columns is None:
             selected_columns = ['Offer','SVP','CVP','Market_Category',
@@ -758,6 +912,10 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
         total_row['Market_Category'] = ''
         total_row['Business_Line']   = ''
         total_row['Domain']          = ''
+        total_row['Segment']         = ''
+        total_row['Sub-segment 1']   = ''
+        total_row['Sub-segment 2']   = ''
+        total_row['Sub-segment 3']   = ''
         if 'Product'  in column_order: total_row['Product']  = ''
         if 'Rep_code' in column_order: total_row['Rep_code'] = ''
         if use_custom_cagr in ('yes','both'):
@@ -777,6 +935,8 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
                 total_row[col] = f"{tot_predicted_bl[y]:,.2f}"
             elif col.startswith('Predicted_'):
                 total_row[col] = f"{tot_predicted_mif[y]:,.2f}"
+            elif col.startswith('Million EUR_'):
+                total_row[col] = f"{tot_million_eur[y]:,.2f}"
 
         filtered_total = OrderedDict()
         for col in column_order:
@@ -786,17 +946,23 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
 
         # ── KPIs ──
         avg_cagr      = np.mean(cagr_values) if cagr_values else 0
-        total_row_data = results_list[-1]
-        rev_start_col  = f'Revenue_{display_start_year}'
-        rev_end_col    = f'Real_{pred_start_year}'
-        Actual_cagr    = 0
-        if rev_start_col in total_row_data and rev_end_col in total_row_data:
-            s = total_row_data[rev_start_col]
-            e = total_row_data[rev_end_col]
-            if s and s != '':
-                Actual_cagr = calculate_cagr(
-                    float(s.replace(',','')), float(e.replace(',','')),
-                    pred_start_year - display_start_year)
+
+        # "CAGR of Actual Interval" (TOTAL) — always anchored to the true
+        # first/last historical revenue years (real_start_year /
+        # real_end_year), never to display_start_year/display_end_year.
+        # See the tot_actual_bounds comment above for why.
+        Actual_cagr = _actual_interval_cagr(tot_actual_bounds)
+
+        # Per-offer actual-interval CAGR, for the "Selected Offer CAGR of
+        # Actual Interval" KPI — computed here (server-side, using
+        # calculate_cagr's safe guards) instead of being reconstructed in
+        # JS from Revenue_/Real_ table cells, which silently go missing
+        # once the display window moves past real_start_year and used to
+        # make the KPI blow up to absurd values.
+        actual_interval_cagr_by_offer = {
+            off: f"{_actual_interval_cagr(bounds)*100:.2f}%"
+            for off, bounds in _offer_actual_bounds.items()
+        }
 
         # ── Chart arrays ──
         chart_actual      = []
@@ -841,10 +1007,15 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             'display_start_year'  : display_start_year,
             'display_end_year'    : display_end_year,
             'pred_start_year'     : pred_start_year,
+            'real_cagr_start_year': real_start_year,
+            'real_cagr_end_year'  : real_end_year,
+            'bl_cagr_start_year'  : bl_cagr_start_year,
+            'bl_cagr_end_year'    : bl_cagr_end_year,
             'avg_cagr'            : f"{avg_cagr*100:.2f}%",
             'tot_predicted_mif'   : tot_predicted_mif,
             'tot_predicted_bl'    : tot_predicted_bl,
             'actual_cagr'         : f"{Actual_cagr*100:.2f}%",
+            'actual_interval_cagr_by_offer': actual_interval_cagr_by_offer,
             'result_count'        : len(results_list) - 1,
             'chart_labels'        : [str(y) for y in all_display_years],
             'chart_actual'        : chart_actual,

@@ -3,6 +3,108 @@
 
 {% block extra_css %}
 <style>
+    /* ── KPI GROUPS: réel (blue) / projeté Vue MIF (green) / projeté Vue BL (pink) ──
+       Color values are defined as local CSS variables per group, with a
+       light-mode default and a dark-mode override (mirrors the token
+       pattern base.html uses for --bg-card / --text-primary / etc., but
+       scoped locally here since these three accent colors aren't part
+       of the shared theme palette). */
+    .kpi-group-actual {
+        --kpi-header-bg:   #cfe8fb;
+        --kpi-header-text: #0b4a70;
+        --kpi-border:      #8ec4e8;
+        --kpi-tint:        #eaf6fd;
+    }
+    .kpi-group-mif {
+        --kpi-header-bg:   #d3f0d3;
+        --kpi-header-text: #1d5c25;
+        --kpi-border:      #92cf92;
+        --kpi-tint:        #eefaee;
+    }
+    .kpi-group-bl {
+        --kpi-header-bg:   #f4dcf0;
+        --kpi-header-text: #6a2062;
+        --kpi-border:      #dba3d3;
+        --kpi-tint:        #fbf0fa;
+    }
+
+    body.dark-mode .kpi-group-actual {
+        --kpi-header-bg:   #163a52;
+        --kpi-header-text: #bfe3f8;
+        --kpi-border:      #2f6ea3;
+        --kpi-tint:        rgba(63, 140, 199, 0.12);
+    }
+    body.dark-mode .kpi-group-mif {
+        --kpi-header-bg:   #163d1e;
+        --kpi-header-text: #c8eac6;
+        --kpi-border:      #3a8a4a;
+        --kpi-tint:        rgba(74, 175, 90, 0.12);
+    }
+    body.dark-mode .kpi-group-bl {
+        --kpi-header-bg:   #3c1f38;
+        --kpi-header-text: #f0d6ea;
+        --kpi-border:      #8a4a82;
+        --kpi-tint:        rgba(190, 100, 175, 0.14);
+    }
+
+    .kpi-strip {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    .kpi-group {
+        flex: 1 1 260px;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .kpi-group-header {
+        background-color: var(--kpi-header-bg);
+        color: var(--kpi-header-text);
+        border: 1px solid var(--kpi-border);
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        padding: 6px 12px;
+        font-family: var(--font-main);
+        font-weight: 700;
+        font-size: 0.74rem;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .kpi-group-years {
+        font-weight: 500;
+        text-transform: none;
+        opacity: 0.85;
+        letter-spacing: normal;
+        margin-left: 4px;
+    }
+
+    .kpi-group-cards {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 10px;
+        flex: 1;
+        border: 1px solid var(--kpi-border);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        background-color: var(--kpi-tint);
+    }
+
+    .kpi-group-cards .kpi-card {
+        flex: 1 1 160px;
+        background-color: var(--kpi-tint) !important;
+        border-color: var(--kpi-border) !important;
+    }
+
     .svp-item {
         display: flex;
         align-items: center;
@@ -502,192 +604,109 @@
 
         <!-- KPI STRIP -->
         <div class="kpi-strip">
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_selected_offer_cagr_mif">Selected Offer CAGR MIF</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR_{MIF} = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                        <div data-i18n="index.tooltip_cagr_mif_desc">Calculated from the market size (MIF) values between the CAGR start and end years defined in the parameters.</div>
-                        <div class="tooltip-formula">\( R_y = R_{seed} \times (1 + CAGR)^{\,y - y_{seed}} \)</div>
-                        <div data-i18n="index.tooltip_cagr_application_desc">Applied to revenue: each predicted year compounds the seed-year revenue by this CAGR.</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiSelectedElementCagr">—</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_selected_offer_cagr_bl">Selected Offer CAGR BL</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR_{BL} = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                        <div data-i18n="index.tooltip_cagr_bl_desc">Same as MIF, but uses the custom (Business Line) CAGR uploaded in Files, when available for the offer.</div>
-                        <div class="tooltip-formula">\( R_y = R_{seed} \times (1 + CAGR_{BL})^{\,y - y_{seed}} \)</div>
-                        <div data-i18n="index.tooltip_cagr_application_desc">Applied to revenue: each predicted year compounds the seed-year revenue by this CAGR.</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiSelectedOfferCagrBL">—</div>
-            </div>
-            <!-- <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_mae_mif">MAE MIF</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( MAE = \dfrac{1}{n}\sum_{y}\left| R_y - \hat{R}_y^{MIF} \right| \)</div>
-                        <div data-i18n="index.tooltip_mae_desc">Mean Absolute Error between real and predicted revenue, over years after the prediction start year.</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiMaeMif">—</div>
-            </div>
-            
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_r2_mif">R² MIF</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( R^2 = 1 - \dfrac{\sum_{y}(R_y-\hat{R}_y^{MIF})^2}{\sum_{y}(R_y-\bar{R})^2} \)</div>
-                        <div data-i18n="index.tooltip_r2_desc">Coefficient of determination between real and predicted revenue, over years after the prediction start year.</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiR2Mif">—</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_smape_mif">sMAPE MIF</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( sMAPE = \dfrac{1}{n}\sum_{y}\dfrac{\left|R_y-\hat{R}_y^{MIF}\right|}{(|R_y|+|\hat{R}_y^{MIF}|)/2} \)</div>
-                        <div data-i18n="index.tooltip_smape_desc">Symmetric mean absolute percentage error between real and predicted revenue, over years after the prediction start year.</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiSmapeMif">—</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_mae_bl">MAE BL</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( MAE = \dfrac{1}{n}\sum_{y}\left| R_y - \hat{R}_y^{BL} \right| \)</div>
-                        <div data-i18n="index.tooltip_mae_desc">Mean Absolute Error between real and predicted revenue, over years after the prediction start year.</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiMaeBl">—</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_r2_bl">R² BL</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( R^2 = 1 - \dfrac{\sum_{y}(R_y-\hat{R}_y^{BL})^2}{\sum_{y}(R_y-\bar{R})^2} \)</div>
-                        <div data-i18n="index.tooltip_r2_desc">Coefficient of determination between real and predicted revenue, over years after the prediction start year.</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiR2Bl">—</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_smape_bl">sMAPE BL</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( sMAPE = \dfrac{1}{n}\sum_{y}\dfrac{\left|R_y-\hat{R}_y^{BL}\right|}{(|R_y|+|\hat{R}_y^{BL}|)/2} \)</div>
-                        <div data-i18n="index.tooltip_smape_desc">Symmetric mean absolute percentage error between real and predicted revenue, over years after the prediction start year.</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiSmapeBl">—</div>
-            </div>
-            -->
-            
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_cagr_actual_interval_offer">CAGR of Actual Interval of selected offer</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{ {{ revenue_years[-1] }} }}{M_{ {{ revenue_years[0] }} }}\right)^{\frac{1}{ {{ revenue_years[-1]-revenue_years[0] }} }} - 1 \)</div>
-                        <div> CAGR of {{ revenue_years[0] }} → {{ revenue_years[-1] }}</div>
-                    </div>
-                </div>
-                <div class="kpi-value white" id="kpiSelectedOfferCagrActual">—</div>
-            </div>
 
-            <div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_cagr_actual_interval">SVP/CVP CAGR of Actual Interval</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula"></div>
-                        <div data-i18n="">CAGR calculated using the total of actual/real values by taking start year and last year of actual/real values of all offers.</div>
-                    </div>
+            <!-- Blue: CAGR réel (actual interval) -->
+            <div class="kpi-group kpi-group-actual">
+                <div class="kpi-group-header">
+                    <span data-i18n="index.kpi_group_actual">CAGR réel</span>
+                    <span id="kpiGroupActualYears" class="kpi-group-years">({{ revenue_years[0] }} → {{ revenue_years[-1] }})</span>
                 </div>
-                <div class="kpi-value" id="kpiCagrActualInterval">—</div>
-            </div>
-            <!--<div class="kpi-card">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_avg_cagr">Avg CAGR</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                        <div data-i18n="index.tooltip_avg_cagr_desc">Average MIF CAGR of all individual offers, each calculated from market size values.</div>
-                    </div>
-                </div>
-                <div class="kpi-value" id="kpiAvgCagr">—</div>
-
-                <div class="kpi-card">
-                    <div class="kpi-label">
-                        <span data-i18n="index.kpi_total_cagr">Total CAGR</span>
-                        <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                        <div class="tooltip-content">
-                            <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                            <div data-i18n="index.tooltip_total_cagr_desc">CAGR of the TOTAL row across the CAGR interval, calculated from market size values.</div>
+                <div class="kpi-group-cards">
+                    <div class="kpi-card">
+                        <div class="kpi-label">
+                            <span data-i18n="index.kpi_cagr_actual_interval_offer">CAGR of Actual Interval of selected offer</span>
+                            <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                            <div class="tooltip-content">
+                                <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{ {{ revenue_years[-1] }} }}{M_{ {{ revenue_years[0] }} }}\right)^{\frac{1}{ {{ revenue_years[-1]-revenue_years[0] }} }} - 1 \)</div>
+                                <div> CAGR of {{ revenue_years[0] }} → {{ revenue_years[-1] }}</div>
+                            </div>
                         </div>
+                        <div class="kpi-value white" id="kpiSelectedOfferCagrActual">—</div>
                     </div>
-                    <div class="kpi-value" id="kpiTotalCagr">—</div>
-                </div>
-            </div>-->
-            <div class="kpi-card" id="kpiCardAvgCagrMif">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_avg_cagr_mif">Avg CAGR MIF</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                        <div data-i18n="index.tooltip_avg_cagr_desc">Average MIF CAGR of all individual offers, each calculated from market size values.</div>
-                    </div>
-                </div>
-                <div class="kpi-value" id="kpiAvgCagrMif">—</div>
-            </div>
-            <div class="kpi-card" id="kpiCardTotalCagrMif">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_total_cagr_mif">SVP/CVP CAGR MIF</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                        <div data-i18n="index.tooltip_total_cagr_desc">CAGR of the TOTAL row across the CAGR interval, calculated from market size values.</div>
+
+                    <div class="kpi-card">
+                        <div class="kpi-label">
+                            <span data-i18n="index.kpi_cagr_actual_interval">SVP/CVP CAGR of Actual Interval</span>
+                            <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                            <div class="tooltip-content">
+                                <div class="tooltip-formula"></div>
+                                <div data-i18n="">CAGR calculated using the total of actual/real values by taking start year and last year of actual/real values of all offers.</div>
+                            </div>
+                        </div>
+                        <div class="kpi-value" id="kpiCagrActualInterval">—</div>
                     </div>
                 </div>
-                <div class="kpi-value" id="kpiTotalCagrMif">—</div>
-            </div>
-            <div class="kpi-card" id="kpiCardAvgCagrBl" style="display:none;">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_avg_cagr_bl">Avg CAGR BL</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                        <div data-i18n="index.tooltip_avg_cagr_desc">Average BL CAGR of all individual offers, each calculated from custom CAGR values.</div>
-                    </div>
-                </div>
-                <div class="kpi-value" id="kpiAvgCagrBl">—</div>
             </div>
 
-            <div class="kpi-card" id="kpiCardTotalCagrBl" style="display:none;">
-                <div class="kpi-label">
-                    <span data-i18n="index.kpi_total_cagr_bl">SVP/CVP CAGR BL</span>
-                    <span class="info-icon" onclick="toggleTooltip(event)">!</span>
-                    <div class="tooltip-content">
-                        <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
-                        <div data-i18n="index.tooltip_total_cagr_desc">CAGR of the TOTAL row across the CAGR interval, calculated from custom CAGR values.</div>
+            <!-- Green: CAGR projeté — Vue MIF -->
+            <div class="kpi-group kpi-group-mif">
+                <div class="kpi-group-header">
+                    <span data-i18n="index.kpi_group_mif">CAGR projeté — Vue MIF</span>
+                    <span id="kpiGroupMifYears" class="kpi-group-years">({{ default_cagr_start }} → {{ default_cagr_end }})</span>
+                </div>
+                <div class="kpi-group-cards">
+                    <div class="kpi-card">
+                        <div class="kpi-label">
+                            <span data-i18n="index.kpi_selected_offer_cagr_mif">Selected Offer CAGR MIF</span>
+                            <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                            <div class="tooltip-content">
+                                <div class="tooltip-formula">\( CAGR_{MIF} = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
+                                <div data-i18n="index.tooltip_cagr_mif_desc">Calculated from the market size (MIF) values between the CAGR start and end years defined in the parameters.</div>
+                                <div class="tooltip-formula">\( R_y = R_{seed} \times (1 + CAGR)^{\,y - y_{seed}} \)</div>
+                                <div data-i18n="index.tooltip_cagr_application_desc">Applied to revenue: each predicted year compounds the seed-year revenue by this CAGR.</div>
+                            </div>
+                        </div>
+                        <div class="kpi-value white" id="kpiSelectedElementCagr">—</div>
+                    </div>
+
+                    <div class="kpi-card" id="kpiCardTotalCagrMif">
+                        <div class="kpi-label">
+                            <span data-i18n="index.kpi_total_cagr_mif">SVP/CVP CAGR MIF</span>
+                            <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                            <div class="tooltip-content">
+                                <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
+                                <div data-i18n="index.tooltip_total_cagr_desc">CAGR of the TOTAL row across the CAGR interval, calculated from market size values.</div>
+                            </div>
+                        </div>
+                        <div class="kpi-value" id="kpiTotalCagrMif">—</div>
                     </div>
                 </div>
-                <div class="kpi-value" id="kpiTotalCagrBl">—</div>
             </div>
+
+            <!-- Pink: CAGR projeté — Vue BL -->
+            <div class="kpi-group kpi-group-bl">
+                <div class="kpi-group-header">
+                    <span data-i18n="index.kpi_group_bl">CAGR projeté — Vue BL</span>
+                    <span id="kpiGroupBlYears" class="kpi-group-years">({{ default_cagr_start }} → {{ default_cagr_end }})</span>
+                </div>
+                <div class="kpi-group-cards">
+                    <div class="kpi-card">
+                        <div class="kpi-label">
+                            <span data-i18n="index.kpi_selected_offer_cagr_bl">Selected Offer CAGR BL</span>
+                            <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                            <div class="tooltip-content">
+                                <div class="tooltip-formula">\( CAGR_{BL} = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
+                                <div data-i18n="index.tooltip_cagr_bl_desc">Same as MIF, but uses the custom (Business Line) CAGR uploaded in Files, when available for the offer.</div>
+                                <div class="tooltip-formula">\( R_y = R_{seed} \times (1 + CAGR_{BL})^{\,y - y_{seed}} \)</div>
+                                <div data-i18n="index.tooltip_cagr_application_desc">Applied to revenue: each predicted year compounds the seed-year revenue by this CAGR.</div>
+                            </div>
+                        </div>
+                        <div class="kpi-value white" id="kpiSelectedOfferCagrBL">—</div>
+                    </div>
+                    <div class="kpi-card" id="kpiCardTotalCagrBl" style="display:none;">
+                        <div class="kpi-label">
+                            <span data-i18n="index.kpi_total_cagr_bl">SVP/CVP CAGR BL</span>
+                            <span class="info-icon" onclick="toggleTooltip(event)">!</span>
+                            <div class="tooltip-content">
+                                <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
+                                <div data-i18n="index.tooltip_total_cagr_desc">CAGR of the TOTAL row across the CAGR interval, calculated from custom CAGR values.</div>
+                            </div>
+                        </div>
+                        <div class="kpi-value" id="kpiTotalCagrBl">—</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- SEARCH + DOWNLOADS -->
@@ -893,6 +912,12 @@ let chartVisible       = true;
 
 let revenue_years_start= {{ revenue_years[0] }};
 let revenue_years_end  = {{ revenue_years[-1] }};
+
+// Per-offer "CAGR of Actual Interval" (real_cagr_start_year → real_cagr_end_year),
+// computed server-side in pipeline.py — always anchored to the true first/last
+// historical revenue years, independent of the display interval. Populated from
+// data.actual_interval_cagr_by_offer after each /results_data response.
+let currentActualIntervalCagrByOffer = {};
 
 // Multi-select state
 let selectedRowIndices = new Set();
@@ -1492,46 +1517,35 @@ function updateKpiVisibility(mode) {
 
 // ── Calculate CAGR of Actual Interval for selected offers ──
 function calculateActualIntervalCagr(rowIndices) {
-    if (!currentChartData || !currentTableData || !rowIndices || rowIndices.length === 0) {
+    // Uses the server-computed per-offer "CAGR of Actual Interval" values
+    // (currentActualIntervalCagrByOffer, from data.actual_interval_cagr_by_offer),
+    // which are always anchored to the true first/last historical revenue
+    // years (real_cagr_start_year / real_cagr_end_year) — never to the
+    // display interval. Previously this was reconstructed here from the
+    // rendered Revenue_/Real_ table cells, which only exist for years
+    // inside the current display window: moving display_start_year past
+    // the true first revenue year silently dropped that cell, the
+    // fallback "+0.01" start value kicked in, and the CAGR blew up (e.g.
+    // 2.5% turning into 1000%). Reading the pre-computed, display-window
+    // -independent value from the backend avoids that failure mode
+    // entirely.
+    if (!currentTableData || !rowIndices || rowIndices.length === 0) {
         return '—';
     }
 
-    const labels = currentChartData.chart_labels;
-    const revenueYears = labels; // Assuming all labels are revenue years
-    
-    if (revenueYears.length < 2) return '—';
-
     const cagrValues = [];
-
     rowIndices.forEach(i => {
         const row = currentTableData[i];
-        if (row['Offer'] === 'TOTAL') return;
+        if (!row || row['Offer'] === 'TOTAL') return;
 
-        const parseCell = (col) => {
-            const v = row[col];
-            if (!v || v === '—' || v === '---') return null;
-            return parseFloat(String(v).replace(/,/g, ''));
-        };
-
-        // Get first and last year values from Revenue columns
-        const firstYear = revenue_years_start;
-        const lastYear = revenue_years_end;
-
-        const startVal = parseCell(`Revenue_${firstYear}`)+0.01;
-        const endVal = parseCell(`Real_${lastYear}`);
-        console.log(startVal);
-        console.log(endVal);
-        if (startVal && endVal) {
-            const n = revenueYears.length - 1;
-            const cagr = (Math.sign(endVal / startVal)*Math.pow(Math.abs(endVal / startVal), 1 / n) - 1) * 100;
-            cagrValues.push(cagr);
-        }
+        const raw = currentActualIntervalCagrByOffer[row['Offer']];
+        if (raw === undefined || raw === null) return;
+        const pct = parseFloat(String(raw).replace('%', ''));
+        if (!isNaN(pct)) cagrValues.push(pct);
     });
 
-    console.log(cagrValues);
     if (cagrValues.length === 0) return '—';
 
-    // Return average CAGR of selected offers
     const avgCagr = cagrValues.reduce((a, b) => a + b, 0) / cagrValues.length;
     return avgCagr.toFixed(2) + '%';
 }
@@ -2057,6 +2071,7 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
 
         // ── SUCCESS: Process results ──
         currentChartData = data;
+        currentActualIntervalCagrByOffer = data.actual_interval_cagr_by_offer || {};
         selectedRowIndices = new Set();
         sessionCagrs       = [];
         sessionCagrCounter = 0;
@@ -2064,8 +2079,30 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         const mode = data.use_custom_cagr || 'no';
         updateKpiVisibility(mode);
 
+        // Keep the KPI group headers' year ranges in sync with what this
+        // specific run actually used: "réel" is always the true first/last
+        // historical revenue years (fixed, independent of the display
+        // interval); "projeté" reflects the CAGR Years the person picked
+        // for this run (defaults to last revenue year → last market size
+        // year, but can be changed).
+        if (data.real_cagr_start_year != null && data.real_cagr_end_year != null) {
+            document.getElementById('kpiGroupActualYears').textContent =
+                `(${data.real_cagr_start_year} → ${data.real_cagr_end_year})`;
+        }
+        if (data.cagr_start_year != null && data.cagr_end_year != null) {
+            const projectedYears = `(${data.cagr_start_year} → ${data.cagr_end_year})`;
+            document.getElementById('kpiGroupMifYears').textContent = projectedYears;
+        }
+        const blStart = data.bl_cagr_start_year ?? data.cagr_start_year;
+        const blEnd   = data.bl_cagr_end_year   ?? data.cagr_end_year;
+        if (blStart != null && blEnd != null) {
+            document.getElementById('kpiGroupBlYears').textContent = `(${blStart} → ${blEnd})`;
+        }
+
         updateTopBar();
-        document.getElementById('kpiSelectedElementCagr').textContent = '—';
+        document.getElementById('kpiSelectedElementCagr').textContent  = '—';
+        document.getElementById('kpiSelectedOfferCagrBL').textContent  = '—';
+        document.getElementById('kpiSelectedOfferCagrActual').textContent  = '—';
         document.getElementById('kpiCagrActualInterval').textContent  = data.actual_cagr;
 
         const all_cagr_bl = [];
@@ -2088,15 +2125,6 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
         const avg_cagr_mif= String((all_cagr_mif.reduce((sum, num) => sum + num, 0) / all_cagr_mif.length).toFixed(2));
         //console.log(avg_cagr_mif);
 
-        if (mode === 'no') {
-            document.getElementById('kpiAvgCagrMif').textContent = data.avg_cagr;
-        } else if (mode === 'yes') {
-            document.getElementById('kpiAvgCagrBl').textContent = avg_cagr_bl;
-        } else if (mode === 'both') {
-            document.getElementById('kpiAvgCagrMif').textContent = data.avg_cagr;
-            document.getElementById('kpiAvgCagrBl').textContent = avg_cagr_bl;
-        }
-
         document.getElementById('kpiSelectedOfferCagrBL').textContent = '—';
 
         // Total CAGR
@@ -2111,12 +2139,12 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             console.log(ey);
             console.log(sy);
             if (sv_mif !== undefined && ev_mif !== undefined && ey > sy) {
-                totalCagrMIF = ((Math.pow(ev_mif/(sv_mif+0.1), 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
+                totalCagrMIF = ((Math.pow(ev_mif/(sv_mif+0.0001), 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
             }
             const sv_bl = data.tot_predicted_bl[sy];
             const ev_bl = data.tot_predicted_bl[ey];
             if (sv_bl !== undefined && ev_bl !== undefined && ey > sy) {
-                totalCagrBL = ((Math.pow(ev_bl/(sv_bl+0.1), 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
+                totalCagrBL = ((Math.pow(ev_bl/(sv_bl+0.0001), 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
             }
         }
 

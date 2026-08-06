@@ -688,27 +688,27 @@ function clearFileSelection() {
 const FILE_TYPES = {
     cagr_svp: {
         name: 'CAGR SVP',
-        requiredColumns: ['catégorie', 'pr_offer', 'pr_offer_line', 'pr_business_line'],
+        requiredColumns: ['catégorie', 'pr_offer', 'pr_offer_line', 'pr_sub_domain', 'pr_domain', 'pr_sub_business_line', 'pr_business_line'],
         description: 'Multi-sheet workbook — category hierarchy used (with All Products) to build the Rep_Code → catégorie mapping'
     },
     market: {
         name: 'Market Size',
-        requiredColumns: ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3', 'Million EUR', 'Year', 'ID'],
-        description: 'Market sizing data with forecasts, keyed by ID (matched to catégorie semantically)'
+        requiredColumns: ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3', 'Million EUR', 'Year'],
+        description: 'Market sizing data with forecasts, keyed by Hierarchy (matched to catégorie semantically)'
     },
     all_products: {
         name: 'All Products Requested',
-        requiredColumns: ['rep_code', 'business_line', 'offer_line', 'offer', 'Strategic (for SVPs)', 'CVP'],
+        requiredColumns: ['rep_code', 'Business_Line', 'Sub_Business_Line', 'Domain', 'Sub_Domain', 'offer_line', 'offer', 'Product', 'Strategic (for SVPs)', 'CVP', 'Delivery_Zone (Region)'],
         description: 'Rep_Code dimension table used to assign each Rep_Code its catégorie'
     },
     data_fr: {
         name: 'Data (France)',
-        requiredColumns: ['rep_code', 'Offer', 'Period', '_S_Revenue_actual'],
+        requiredColumns: ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
         description: 'France revenue data — combined with International into data.xlsx (Region = FR)'
     },
     data_intl: {
         name: 'Data (International)',
-        requiredColumns: ['rep_code', 'Offer', 'Period', '_S_Revenue_actual'],
+        requiredColumns: ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
         description: 'International revenue data — combined with France into data.xlsx (Region = INT)'
     }
 };
@@ -868,6 +868,7 @@ async function loadFileStatus() {
                     </div>
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <span class="file-status-badge ${badgeClass}">${badgeText}</span>
+                        <button class="btn-file" onclick="downloadFile('${fileType}')" data-i18n="files.download">Download</button>
                         <button class="btn-file" onclick="triggerFileInput('${fileType}')">Replace</button>
                     </div>
                 </div>
@@ -933,6 +934,11 @@ async function loadVersionHistory() {
     } catch (error) {
         historyContainer.innerHTML = `<div class="alert-box alert-error show">Error loading history: ${error.message}</div>`;
     }
+}
+
+// ── Download File (important columns only) ─────────────────────────────────
+function downloadFile(fileType) {
+    window.location.href = `/download_file/${fileType}`;
 }
 
 // ── Trigger File Input for Replace ─────────────────────────────────────────

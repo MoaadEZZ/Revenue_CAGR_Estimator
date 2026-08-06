@@ -642,12 +642,14 @@
             <div class="kpi-group kpi-group-mif">
                 <div class="kpi-group-header">
                     <span data-i18n="index.kpi_group_mif">CAGR projeté — Vue MIF</span>
-                    <span id="kpiGroupMifYears" class="kpi-group-years">({{ default_cagr_start }} → {{ default_cagr_end }})</span>
                 </div>
                 <div class="kpi-group-cards">
                     <div class="kpi-card">
                         <div class="kpi-label">
-                            <span data-i18n="index.kpi_selected_offer_cagr_mif">Selected Offer CAGR MIF</span>
+                            <span>
+                                <span data-i18n="index.kpi_selected_offer_cagr_mif">Selected Offer CAGR MIF</span>
+                                <span id="kpiGroupMifYearsSelected" class="kpi-group-years">({{ default_cagr_start }} → {{ default_cagr_end }})</span>
+                            </span>
                             <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                             <div class="tooltip-content">
                                 <div class="tooltip-formula">\( CAGR_{MIF} = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
@@ -661,7 +663,10 @@
 
                     <div class="kpi-card" id="kpiCardTotalCagrMif">
                         <div class="kpi-label">
-                            <span data-i18n="index.kpi_total_cagr_mif">SVP/CVP CAGR MIF</span>
+                            <span>
+                                <span data-i18n="index.kpi_total_cagr_mif">SVP/CVP CAGR MIF</span>
+                                <span id="kpiGroupMifYearsTotal" class="kpi-group-years">({{ pred_start_year }} → {{ default_cagr_end }})</span>
+                            </span>
                             <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                             <div class="tooltip-content">
                                 <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
@@ -677,12 +682,14 @@
             <div class="kpi-group kpi-group-bl">
                 <div class="kpi-group-header">
                     <span data-i18n="index.kpi_group_bl">CAGR projeté — Vue BL</span>
-                    <span id="kpiGroupBlYears" class="kpi-group-years">({{ default_cagr_start }} → {{ default_cagr_end }})</span>
                 </div>
                 <div class="kpi-group-cards">
                     <div class="kpi-card">
                         <div class="kpi-label">
-                            <span data-i18n="index.kpi_selected_offer_cagr_bl">Selected Offer CAGR BL</span>
+                            <span>
+                                <span data-i18n="index.kpi_selected_offer_cagr_bl">Selected Offer CAGR BL</span>
+                                <span id="kpiGroupBlYearsSelected" class="kpi-group-years">({{ default_cagr_start }} → {{ default_cagr_end }})</span>
+                            </span>
                             <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                             <div class="tooltip-content">
                                 <div class="tooltip-formula">\( CAGR_{BL} = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
@@ -695,7 +702,10 @@
                     </div>
                     <div class="kpi-card" id="kpiCardTotalCagrBl" style="display:none;">
                         <div class="kpi-label">
-                            <span data-i18n="index.kpi_total_cagr_bl">SVP/CVP CAGR BL</span>
+                            <span>
+                                <span data-i18n="index.kpi_total_cagr_bl">SVP/CVP CAGR BL</span>
+                                <span id="kpiGroupBlYearsTotal" class="kpi-group-years">({{ pred_start_year }} → {{ default_cagr_end }})</span>
+                            </span>
                             <span class="info-icon" onclick="toggleTooltip(event)">!</span>
                             <div class="tooltip-content">
                                 <div class="tooltip-formula">\( CAGR = \left(\dfrac{M_{end}}{M_{start}}\right)^{\frac{1}{n}} - 1 \)</div>
@@ -909,6 +919,16 @@ let currentColumnOrder = null;
 let currentChartData   = null;
 let revenueChart       = null;
 let chartVisible       = true;
+
+// NOTE: this used to be `let firstChartTitle = document.getElementById('chartTitle').textContent`,
+// captured once at script parse time — before translations.js had loaded. That meant it
+// permanently cached the hardcoded English default ("Total Revenue by Year") even when the
+// page language was French, so the chart title reverted to English any time it fell back to
+// this default (e.g. after clearing a selection). Making it a function means it's evaluated
+// on demand, after translations are loaded, so it always reflects the current language.
+function firstChartTitle() {
+    return t('index.total_revenue');
+}
 
 let revenue_years_start= {{ revenue_years[0] }};
 let revenue_years_end  = {{ revenue_years[-1] }};
@@ -1199,7 +1219,7 @@ function renderChart(labels, actual, realPost, predictedMIF, title, predictedBL)
         }
     });
     window.dispatchEvent(new CustomEvent('chartReady'));
-    document.getElementById('chartTitle').textContent = title || 'Total Revenue by Year';
+    document.getElementById('chartTitle').textContent = title || firstChartTitle();
 }
 
 // ── renderTable ───────────────────────────────────────────────────────────────
@@ -1297,7 +1317,7 @@ function selectTableRow(el, idx) {
                 currentChartData.chart_actual,
                 currentChartData.chart_real_post,
                 currentChartData.chart_predicted,
-                'Total Revenue by Year',
+                firstChartTitle(),
                 currentChartData.chart_predicted_bl
             );
             _appendSessionDatasetsToChart(null);
@@ -2090,13 +2110,20 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
                 `(${data.real_cagr_start_year} → ${data.real_cagr_end_year})`;
         }
         if (data.cagr_start_year != null && data.cagr_end_year != null) {
-            const projectedYears = `(${data.cagr_start_year} → ${data.cagr_end_year})`;
-            document.getElementById('kpiGroupMifYears').textContent = projectedYears;
+            document.getElementById('kpiGroupMifYearsSelected').textContent =
+                `(${data.cagr_start_year} → ${data.cagr_end_year})`;
+        }
+        if (data.pred_start_year != null && data.cagr_end_year != null) {
+            document.getElementById('kpiGroupMifYearsTotal').textContent =
+                `(${data.pred_start_year} → ${data.cagr_end_year})`;
         }
         const blStart = data.bl_cagr_start_year ?? data.cagr_start_year;
         const blEnd   = data.bl_cagr_end_year   ?? data.cagr_end_year;
         if (blStart != null && blEnd != null) {
-            document.getElementById('kpiGroupBlYears').textContent = `(${blStart} → ${blEnd})`;
+            document.getElementById('kpiGroupBlYearsSelected').textContent = `(${blStart} → ${blEnd})`;
+        }
+        if (data.pred_start_year != null && blEnd != null) {
+            document.getElementById('kpiGroupBlYearsTotal').textContent = `(${data.pred_start_year} → ${blEnd})`;
         }
 
         updateTopBar();
@@ -2136,7 +2163,7 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             const sv_mif = data.tot_predicted_mif[sy];
             const ev_mif = data.tot_predicted_mif[ey];
             console.log(data.tot_predicted_mif);
-            console.log(ey);
+            console.log(ev_mif);
             console.log(sy);
             if (sv_mif !== undefined && ev_mif !== undefined && ey > sy) {
                 totalCagrMIF = ((Math.pow(ev_mif/(sv_mif+0.0001), 1/(ey-sy)) - 1)*100).toFixed(2) + '%';
@@ -2214,7 +2241,7 @@ document.getElementById('analysisForm').addEventListener('submit', async functio
             data.chart_actual,
             data.chart_real_post,
             data.chart_predicted,
-            'Total Revenue by Year',
+            firstChartTitle(),
             data.use_custom_cagr === 'both' ? data.chart_predicted_bl : null
         );
         renderTable(data.table_data, data.column_order);

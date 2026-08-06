@@ -642,6 +642,22 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
         tot_million_eur   = {y: 0.0 for y in all_display_years}
         has_real_post     = {y: False for y in all_display_years}
 
+        # kpiTotalCagrMif/kpiTotalCagrBL must always be computable from the
+        # CAGR interval (cagr_start_year → cagr_end_year), independent of
+        # the display interval (all_display_years) — the person can move
+        # the display window without losing the total-CAGR KPI. Otherwise
+        # tot_predicted_mif/tot_predicted_bl are only keyed over
+        # all_display_years, so if either CAGR boundary year falls outside
+        # the display window (e.g. display 2022→2029 but CAGR 2025→2030),
+        # that key would be missing and the KPI would silently read as
+        # undefined on the frontend. Make sure both boundary years always
+        # have an entry.
+        extra_cagr_years = sorted(
+            {cagr_start_year, cagr_end_year} - set(all_display_years))
+        for _y in extra_cagr_years:
+            tot_predicted_mif.setdefault(_y, 0.0)
+            tot_predicted_bl.setdefault(_y, 0.0)
+
         # Real/actual-interval revenue totals, tracked separately from
         # tot_actual (which is keyed by all_display_years and therefore
         # blind to years outside the display window) — see comment above.
@@ -810,9 +826,35 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
                 # only rolled into the TOTAL once per unique (Segment,
                 # Sub-segment 1-3, Region) combination.
                 if y in ms_year_vals:
-                    result_row[f'Million EUR_{y}'] = f"{ms_year_vals[y]:,.2f}"
+                    #result_row[f'Million EUR_{y}'] = f"{ms_year_vals[y]:,.2f}"
                     if count_ms_in_total:
                         tot_million_eur[y] += ms_year_vals[y]
+
+            # Extend tot_predicted_mif/tot_predicted_bl to cover any CAGR
+            # boundary year outside the display window (see extra_cagr_years
+            # comment above) so the total-CAGR KPIs always resolve, no
+            # matter where the display interval is set. Not shown in the
+            # table — only rolled into the totals used by the KPI.
+            for y in extra_cagr_years:
+                act_val = actual.get(y, None)
+                if y < pred_start_year:
+                    if act_val is not None:
+                        tot_predicted_mif[y] += act_val
+                        tot_predicted_bl[y]  += act_val
+                else:
+                    steps_mif = y - seed_y
+                    pred_mif  = seed_v * ((1 + mif_cagr) ** steps_mif)
+                    pred_bl   = seed_v * ((1 + bl_cagr)  ** steps_mif)
+                    if y == pred_start_year:
+                        pred_mif = act_val if act_val is not None else pred_mif
+                        pred_bl  = pred_mif
+                    if use_custom_cagr == 'both':
+                        tot_predicted_mif[y] += pred_mif
+                        tot_predicted_bl[y]  += pred_bl
+                    else:
+                        pred_val = pred_bl if use_custom_cagr == 'yes' else pred_mif
+                        tot_predicted_mif[y] += pred_val
+                        tot_predicted_bl[y]  += pred_val
 
             results_list.append(result_row)
 
@@ -866,8 +908,8 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
             else:
                 if any(f'Predicted_{y}' in r for r in results_list):
                     year_cols.append(f'Predicted_{y}')
-            if any(f'Million EUR_{y}' in r for r in results_list):
-                year_cols.append(f'Million EUR_{y}')
+            #if any(f'Million EUR_{y}' in r for r in results_list):
+            #    year_cols.append(f'Million EUR_{y}')
 
         if selected_columns is None:
             selected_columns = ['Offer','SVP','CVP','Market_Category',
@@ -935,8 +977,8 @@ def resultat_data(df_all_data, display_start_year, display_end_year,
                 total_row[col] = f"{tot_predicted_bl[y]:,.2f}"
             elif col.startswith('Predicted_'):
                 total_row[col] = f"{tot_predicted_mif[y]:,.2f}"
-            elif col.startswith('Million EUR_'):
-                total_row[col] = f"{tot_million_eur[y]:,.2f}"
+            #elif col.startswith('Million EUR_'):
+            #    total_row[col] = f"{tot_million_eur[y]:,.2f}"
 
         filtered_total = OrderedDict()
         for col in column_order:

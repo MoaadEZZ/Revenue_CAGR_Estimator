@@ -229,6 +229,120 @@ def files():
     return render_template('files.html')
 
 
+# Mirrors the `requiredColumns` in FILE_TYPES (files.html) — the "important"
+# columns kept when exporting a tracked source file.
+REQUIRED_COLUMNS = {
+    'cagr_svp': ['catégorie', 'pr_offer', 'pr_offer_line', 'pr_sub_domain',
+                 'pr_domain', 'pr_sub_business_line', 'pr_business_line'],
+    'market': ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3',
+               'Million EUR', 'Year'],
+    'all_products': ['rep_code', 'Business_Line', 'Sub_Business_Line', 'Domain',
+                      'Sub_Domain', 'offer_line', 'offer', 'Product',
+                      'Strategic (for SVPs)', 'CVP', 'Delivery_Zone (Region)'],
+    'data_fr': ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
+    'data_intl': ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
+}
+
+
+@app.route('/download_file/<file_type>')
+def download_file(file_type):
+    try:
+        if file_type not in REQUIRED_COLUMNS:
+            return jsonify({'error': 'Invalid file type'}), 400
+
+        path = dict(TRACKED_FILES).get(file_type)
+        if not path or not os.path.exists(path):
+            return jsonify({'error': 'File not found'}), 404
+
+        # Read the file the same way it's read/validated on upload.
+        if file_type == 'cagr_svp':
+            xls = pd.ExcelFile(path)
+            relevant_sheets = [s for s in xls.sheet_names
+                                if not s.startswith('MIF') and 'GLOBAL' not in s]
+            df = None
+            for sheet in relevant_sheets:
+                df_sheet = pd.read_excel(path, sheet_name=sheet, skiprows=2)
+                if 'catégorie' in df_sheet.columns:
+                    df = df_sheet
+                    break
+            if df is None:
+                return jsonify({'error': "Missing 'catégorie' column in CAGR SVP sheets"}), 400
+
+        elif file_type == 'market':
+            sheet_names = pd.ExcelFile(path).sheet_names
+            if 'DATA BASE MARKET FORECAST' in sheet_names:
+                df = pd.read_excel(path, sheet_name='DATA BASE MARKET FORECAST', skiprows=5)
+            else:
+                df = pd.read_excel(path)
+
+        elif file_type == 'all_products':
+            df = pd.read_excel(path)
+            df.columns = df.columns.str.strip()
+
+        else:  # data_fr, data_intl
+            df = pd.read_excel(path)
+
+        # Keep only the "important" columns, matched case-insensitively,
+        # in the order defined by REQUIRED_COLUMNS.
+        col_lookup = {str(c).strip().lower(): c for c in df.columns}
+        wanted = REQUIRED_COLUMNS[file_type]
+        selected_cols = [col_lookup[w.lower()] for w in wanted if w.lower() in col_lookup]
+        missing_cols  = [w for w in wanted if w.lower() not in col_lookup]
+
+        if not selected_cols:
+            return jsonify({'error': 'None of the required columns were found in this file'}), 400
+
+        df_filtered = df[selected_cols]
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = file_type[:31]
+
+        hdr_fill = PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
+        hdr_font = Font(bold=True, color="FFFFFF", size=11)
+        border   = Border(
+            left=Side(style='thin', color='CCCCCC'),
+            right=Side(style='thin', color='CCCCCC'),
+            top=Side(style='thin', color='CCCCCC'),
+            bottom=Side(style='thin', color='CCCCCC'))
+
+        for ci, col in enumerate(selected_cols, 1):
+            cell = ws.cell(row=1, column=ci, value=col)
+            cell.fill = hdr_fill; cell.font = hdr_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = border
+
+        for ri, (_, row) in enumerate(df_filtered.iterrows(), 2):
+            for ci, col in enumerate(selected_cols, 1):
+                value = row[col]
+                if pd.isna(value):
+                    value = ''
+                cell = ws.cell(row=ri, column=ci, value=value)
+                cell.border = border
+
+        for ci, col in enumerate(selected_cols, 1):
+            mx = max((len(str(ws.cell(row=r, column=ci).value or ''))
+                      for r in range(1, len(df_filtered) + 2)), default=10)
+            ws.column_dimensions[get_column_letter(ci)].width = min(mx + 2, 50)
+
+        ws.freeze_panes = 'A2'
+
+        if missing_cols:
+            note_ws = wb.create_sheet('Notes')
+            note_ws.cell(row=1, column=1,
+                         value=f"Columns not found in source file: {', '.join(missing_cols)}")
+
+        out = BytesIO(); wb.save(out); out.seek(0)
+        return send_file(out,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'{file_type}_important_columns.xlsx')
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/settings')
 def settings():
     return render_template('settings.html')

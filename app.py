@@ -9,6 +9,7 @@ from pipeline import (
     DATA_REVENUE_FR, DATA_REVENUE_INTL,
     build_category_mapper, combine_revenue_files,
 )
+from mapping import GENERATED_MAPPER_PATH
 import json
 import os
 import re
@@ -229,118 +230,115 @@ def files():
     return render_template('files.html')
 
 
-# Mirrors the `requiredColumns` in FILE_TYPES (files.html) — the "important"
-# columns kept when exporting a tracked source file.
-REQUIRED_COLUMNS = {
-    'cagr_svp': ['catégorie', 'pr_offer', 'pr_offer_line', 'pr_sub_domain',
-                 'pr_domain', 'pr_sub_business_line', 'pr_business_line'],
-    'market': ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3',
-               'Million EUR', 'Year'],
-    'all_products': ['rep_code', 'Business_Line', 'Sub_Business_Line', 'Domain',
-                      'Sub_Domain', 'offer_line', 'offer', 'Product',
-                      'Strategic (for SVPs)', 'CVP', 'Delivery_Zone (Region)'],
-    'data_fr': ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
-    'data_intl': ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
+# Files downloadable from the Files page, and the exact path each one is
+# stored at. These downloads serve the file AS STORED — i.e. exactly the
+# structure the upload validators expect (multi-sheet layout, header row
+# offsets, sheet names) — so a downloaded file can be re-uploaded as-is
+# with no reformatting. 'generated_category_mapper' is handled separately
+# below since it's a derived/cached file, not a directly-uploaded one.
+DOWNLOADABLE_FILES = {
+    'cagr_svp':            DATA_CAGR_SVP,
+    'market':               DATA_MARKET_SIZE,
+    'all_products':         DATA_ALL_PRODUCTS,
+    'market_hierarchies':   DATA_MARKET_HIERARCHIES,
 }
 
 
 @app.route('/download_file/<file_type>')
 def download_file(file_type):
     try:
-        if file_type not in REQUIRED_COLUMNS:
+        if file_type in DOWNLOADABLE_FILES:
+            path = DOWNLOADABLE_FILES[file_type]
+            if not path or not os.path.exists(path):
+                return jsonify({'error': 'File not found'}), 404
+            ext = os.path.splitext(path)[1] or '.xlsx'
+            return send_file(path, as_attachment=True,
+                              download_name=f'{file_type}{ext}')
+
+        elif file_type == 'generated_category_mapper':
+            return _download_generated_category_mapper()
+
+        else:
             return jsonify({'error': 'Invalid file type'}), 400
-
-        path = dict(TRACKED_FILES).get(file_type)
-        if not path or not os.path.exists(path):
-            return jsonify({'error': 'File not found'}), 404
-
-        # Read the file the same way it's read/validated on upload.
-        if file_type == 'cagr_svp':
-            xls = pd.ExcelFile(path)
-            relevant_sheets = [s for s in xls.sheet_names
-                                if not s.startswith('MIF') and 'GLOBAL' not in s]
-            df = None
-            for sheet in relevant_sheets:
-                df_sheet = pd.read_excel(path, sheet_name=sheet, skiprows=2)
-                if 'catégorie' in df_sheet.columns:
-                    df = df_sheet
-                    break
-            if df is None:
-                return jsonify({'error': "Missing 'catégorie' column in CAGR SVP sheets"}), 400
-
-        elif file_type == 'market':
-            sheet_names = pd.ExcelFile(path).sheet_names
-            if 'DATA BASE MARKET FORECAST' in sheet_names:
-                df = pd.read_excel(path, sheet_name='DATA BASE MARKET FORECAST', skiprows=5)
-            else:
-                df = pd.read_excel(path)
-
-        elif file_type == 'all_products':
-            df = pd.read_excel(path)
-            df.columns = df.columns.str.strip()
-
-        else:  # data_fr, data_intl
-            df = pd.read_excel(path)
-
-        # Keep only the "important" columns, matched case-insensitively,
-        # in the order defined by REQUIRED_COLUMNS.
-        col_lookup = {str(c).strip().lower(): c for c in df.columns}
-        wanted = REQUIRED_COLUMNS[file_type]
-        selected_cols = [col_lookup[w.lower()] for w in wanted if w.lower() in col_lookup]
-        missing_cols  = [w for w in wanted if w.lower() not in col_lookup]
-
-        if not selected_cols:
-            return jsonify({'error': 'None of the required columns were found in this file'}), 400
-
-        df_filtered = df[selected_cols]
-
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = file_type[:31]
-
-        hdr_fill = PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
-        hdr_font = Font(bold=True, color="FFFFFF", size=11)
-        border   = Border(
-            left=Side(style='thin', color='CCCCCC'),
-            right=Side(style='thin', color='CCCCCC'),
-            top=Side(style='thin', color='CCCCCC'),
-            bottom=Side(style='thin', color='CCCCCC'))
-
-        for ci, col in enumerate(selected_cols, 1):
-            cell = ws.cell(row=1, column=ci, value=col)
-            cell.fill = hdr_fill; cell.font = hdr_font
-            cell.alignment = Alignment(horizontal='center', vertical='center')
-            cell.border = border
-
-        for ri, (_, row) in enumerate(df_filtered.iterrows(), 2):
-            for ci, col in enumerate(selected_cols, 1):
-                value = row[col]
-                if pd.isna(value):
-                    value = ''
-                cell = ws.cell(row=ri, column=ci, value=value)
-                cell.border = border
-
-        for ci, col in enumerate(selected_cols, 1):
-            mx = max((len(str(ws.cell(row=r, column=ci).value or ''))
-                      for r in range(1, len(df_filtered) + 2)), default=10)
-            ws.column_dimensions[get_column_letter(ci)].width = min(mx + 2, 50)
-
-        ws.freeze_panes = 'A2'
-
-        if missing_cols:
-            note_ws = wb.create_sheet('Notes')
-            note_ws.cell(row=1, column=1,
-                         value=f"Columns not found in source file: {', '.join(missing_cols)}")
-
-        out = BytesIO(); wb.save(out); out.seek(0)
-        return send_file(out,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=f'{file_type}_important_columns.xlsx')
 
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+
+def _download_generated_category_mapper():
+    """Export the cached Rep_Code → catégorie → Segment/Sub-segment mapper
+    (generated_category_mapper.xlsx) enriched with each Rep_Code's full
+    product hierarchy (Business_Line, Sub_Business_Line, Domain,
+    Sub_Domain, Offer_Line, Offer, Product, ...) pulled from All Products
+    Requested. Unlike the other downloads, this one isn't meant to be
+    re-uploaded (there's no upload slot for it — it's a generated file);
+    it's a reporting/inspection export, so it includes every hierarchy
+    column rather than just the ones the mapper itself stores."""
+    if not os.path.exists(GENERATED_MAPPER_PATH):
+        return jsonify({'error': 'Generated category mapper has not been built yet. '
+                                  'Upload CAGR SVP, All Products, or Market Hierarchies to build it.'}), 404
+    if not os.path.exists(DATA_ALL_PRODUCTS):
+        return jsonify({'error': 'All Products Requested file not found'}), 404
+
+    df_mapper = pd.read_excel(GENERATED_MAPPER_PATH)
+
+    df_prod = pd.read_excel(DATA_ALL_PRODUCTS)
+    df_prod.columns = df_prod.columns.str.strip()
+    rep_col = next((c for c in df_prod.columns if c.strip().lower() == 'rep_code'), None)
+    if not rep_col:
+        return jsonify({'error': "All products requested.xlsx has no Rep_Code column"}), 400
+    if rep_col != 'Rep_Code':
+        df_prod = df_prod.rename(columns={rep_col: 'Rep_Code'})
+
+    hierarchy_cols = [c for c in
+        ['Business_Line', 'Sub_Business_Line', 'Domain', 'Sub_Domain', 'Offer_Line', 'Offer']
+        if c in df_prod.columns]
+    extra_cols = [c for c in ['Product', 'CVP', 'Strategic (for SVPs)', 'Delivery_Zone (Region)']
+                  if c in df_prod.columns]
+    keep_cols = ['Rep_Code'] + hierarchy_cols + extra_cols
+    df_prod_slim = df_prod[keep_cols].drop_duplicates(subset=['Rep_Code'])
+
+    df = df_mapper.merge(df_prod_slim, on='Rep_Code', how='left')
+    cols = list(df.columns)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'generated_category_mapper'[:31]
+
+    hdr_fill = PatternFill(start_color="667EEA", end_color="667EEA", fill_type="solid")
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    border   = Border(
+        left=Side(style='thin', color='CCCCCC'),
+        right=Side(style='thin', color='CCCCCC'),
+        top=Side(style='thin', color='CCCCCC'),
+        bottom=Side(style='thin', color='CCCCCC'))
+
+    for ci, col in enumerate(cols, 1):
+        cell = ws.cell(row=1, column=ci, value=col)
+        cell.fill = hdr_fill; cell.font = hdr_font
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+
+    for ri, (_, row) in enumerate(df.iterrows(), 2):
+        for ci, col in enumerate(cols, 1):
+            value = row[col]
+            if pd.isna(value):
+                value = ''
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.border = border
+
+    for ci, col in enumerate(cols, 1):
+        mx = max((len(str(ws.cell(row=r, column=ci).value or ''))
+                  for r in range(1, len(df) + 2)), default=10)
+        ws.column_dimensions[get_column_letter(ci)].width = min(mx + 2, 50)
+
+    ws.freeze_panes = 'A2'
+    out = BytesIO(); wb.save(out); out.seek(0)
+    return send_file(out,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='generated_category_mapper.xlsx')
 
 
 @app.route('/settings')
@@ -355,7 +353,12 @@ TRACKED_FILES = [
     ('market_hierarchies', DATA_MARKET_HIERARCHIES),
     ('data_fr',     DATA_REVENUE_FR),
     ('data_intl',   DATA_REVENUE_INTL),
+    ('generated_category_mapper', GENERATED_MAPPER_PATH),
 ]
+
+# Tracked files that are generated by the app rather than uploaded — no
+# 'Replace' action should be offered for these on the Files page.
+NON_UPLOADABLE_TRACKED_FILES = {'generated_category_mapper'}
 
 
 @app.route('/file_status')
@@ -560,12 +563,15 @@ def upload_file():
             # Pre-identified catégorie -> Segment/Sub-segment lookup table,
             # used directly (exact-match join, no semantic/fuzzy matching)
             # to fill in each Rep_Code's Segment/Sub-segment hierarchy.
+            # 'Region' (FR/INT) is optional: when present, a catégorie can
+            # carry a different hierarchy per region; when absent, its
+            # hierarchy is applied to both regions (see mapping.py).
             try:
                 df = pd.read_excel(uploaded_file, sheet_name='Sheet1')
             except Exception:
                 return jsonify({'error': "Could not read 'Sheet1' from workbook"}), 400
-            required = ['catégorie (ID)', 'Segment_FR', 'Sub-segment 1_FR',
-                        'Sub-segment 2_FR', 'Sub-segment 3_FR']
+            required = ['catégorie (ID)', 'Segment', 'Sub-segment 1',
+                        'Sub-segment 2', 'Sub-segment 3']
             missing  = [c for c in required if c not in df.columns]
             if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
             target_path = DATA_MARKET_HIERARCHIES

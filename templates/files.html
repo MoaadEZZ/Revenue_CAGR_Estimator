@@ -447,6 +447,7 @@
                     <option value="cagr_svp" data-i18n="files.cagr_svp">CAGR SVP</option>
                     <option value="market" data-i18n="files.market_size">Market Size</option>
                     <option value="all_products" data-i18n="files.all_products">All Products Requested</option>
+                    <option value="market_hierarchies" data-i18n="files.market_hierarchies">Market Hierarchies</option>
                     <option value="data_fr" data-i18n="files.data_fr">Data (France)</option>
                     <option value="data_intl" data-i18n="files.data_intl">Data (International)</option>
                 </select>
@@ -685,31 +686,57 @@ function clearFileSelection() {
     fileNameDisplay.classList.remove('show');
 }
 // ── Configuration ──────────────────────────────────────────────────────────
+// downloadable: shows the "Download" button on the Files page.
+// uploadable:   shows the "Replace" button and is selectable in the upload dropdown.
 const FILE_TYPES = {
     cagr_svp: {
         name: 'CAGR SVP',
         requiredColumns: ['catégorie', 'pr_offer', 'pr_offer_line', 'pr_sub_domain', 'pr_domain', 'pr_sub_business_line', 'pr_business_line'],
-        description: 'Multi-sheet workbook — category hierarchy used (with All Products) to build the Rep_Code → catégorie mapping'
+        description: 'Multi-sheet workbook — category hierarchy used (with All Products) to build the Rep_Code → catégorie mapping. Downloaded exactly as stored (multi-sheet, header starts row 3) so it can be re-uploaded as-is.',
+        downloadable: true,
+        uploadable: true
     },
     market: {
         name: 'Market Size',
-        requiredColumns: ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3', 'Million EUR', 'Year'],
-        description: 'Market sizing data with forecasts, keyed by Hierarchy (matched to catégorie semantically)'
+        requiredColumns: ['Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3', 'Region', 'Million EUR', 'Year'],
+        description: 'Market sizing data with forecasts, keyed by Segment/Sub-segment hierarchy + Region. Downloaded exactly as stored (sheet "DATA BASE MARKET FORECAST", header starts row 6) so it can be re-uploaded as-is.',
+        downloadable: true,
+        uploadable: true
     },
     all_products: {
         name: 'All Products Requested',
         requiredColumns: ['rep_code', 'Business_Line', 'Sub_Business_Line', 'Domain', 'Sub_Domain', 'offer_line', 'offer', 'Product', 'Strategic (for SVPs)', 'CVP', 'Delivery_Zone (Region)'],
-        description: 'Rep_Code dimension table used to assign each Rep_Code its catégorie'
+        description: 'Rep_Code dimension table used to assign each Rep_Code its catégorie. Downloaded exactly as stored so it can be re-uploaded as-is.',
+        downloadable: true,
+        uploadable: true
+    },
+    market_hierarchies: {
+        name: 'Market Hierarchies',
+        requiredColumns: ['catégorie (ID)', 'Segment', 'Sub-segment 1', 'Sub-segment 2', 'Sub-segment 3', 'Region (optional)'],
+        description: 'catégorie → Segment/Sub-segment lookup table used to fill each Rep_Code\'s market hierarchy. Region is optional: if present a catégorie can have a different hierarchy per region (FR/INT); if absent, its hierarchy applies to both. Downloaded exactly as stored (Sheet1) so it can be re-uploaded as-is.',
+        downloadable: true,
+        uploadable: true
+    },
+    generated_category_mapper: {
+        name: 'Generated Category Mapper',
+        requiredColumns: [],
+        description: 'Generated file (not uploadable): Rep_Code → catégorie → Segment/Sub-segment mapper, enriched with each Rep_Code\'s full product hierarchy (Business Line, Sub Business Line, Domain, Sub Domain, Offer Line, Offer, Product, ...) for inspection/reporting.',
+        downloadable: true,
+        uploadable: false
     },
     data_fr: {
         name: 'Data (France)',
         requiredColumns: ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
-        description: 'France revenue data — combined with International into data.xlsx (Region = FR)'
+        description: 'France revenue data — combined with International into data.xlsx (Region = FR)',
+        downloadable: false,
+        uploadable: true
     },
     data_intl: {
         name: 'Data (International)',
         requiredColumns: ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
-        description: 'International revenue data — combined with France into data.xlsx (Region = INT)'
+        description: 'International revenue data — combined with France into data.xlsx (Region = INT)',
+        downloadable: false,
+        uploadable: true
     }
 };
 
@@ -856,10 +883,14 @@ async function loadFileStatus() {
                 badgeText = '⚡ Update Soon';
             }
 
+            const displayName  = FILE_TYPES[fileType]?.name || fileType;
+            const canDownload  = Boolean(FILE_TYPES[fileType]?.downloadable);
+            const canReplace   = Boolean(FILE_TYPES[fileType]?.uploadable);
+
             html += `
                 <div class="file-card">
                     <div class="file-info">
-                        <div class="file-name">${FILE_TYPES[fileType].name}</div>
+                        <div class="file-name">${displayName}</div>
                         <div class="file-meta">
                             <div class="file-meta-item">📅 ${info.modified}</div>
                             <div class="file-meta-item">📊 ${info.rows} rows</div>
@@ -868,8 +899,8 @@ async function loadFileStatus() {
                     </div>
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <span class="file-status-badge ${badgeClass}">${badgeText}</span>
-                        <button class="btn-file" onclick="downloadFile('${fileType}')" data-i18n="files.download">Download</button>
-                        <button class="btn-file" onclick="triggerFileInput('${fileType}')">Replace</button>
+                        ${canDownload ? `<button class="btn-file" onclick="downloadFile('${fileType}')" data-i18n="files.download">Download</button>` : ''}
+                        ${canReplace ? `<button class="btn-file" onclick="triggerFileInput('${fileType}')">Replace</button>` : ''}
                     </div>
                 </div>
             `;

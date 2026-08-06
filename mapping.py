@@ -25,6 +25,20 @@ Combines two ideas:
     hierarchies table is now the trusted source instead, so no
     similarity/fuzzy matching happens here at all.
 
+    The identified hierarchies table carries a Segment / Sub-segment 1-3
+    hierarchy (no "_FR"/"_INT" suffix) plus an OPTIONAL 'Region' column
+    (FR / INT). A catégorie can therefore have two distinct rows — one
+    per region — with different Segment/Sub-segment labels (this matters
+    because the Market Sizing workbook's own segment labels can differ
+    between the France and International sections). When the 'Region'
+    column is absent (or a row's Region isn't recognized), that row's
+    hierarchy is associated with BOTH regions, matching the previous
+    single-hierarchy-for-both behavior. Getting this region split right
+    is what allows the Million EUR join in pipeline.py to actually find
+    matches for International rows, instead of silently joining on
+    France-only segment labels and returning 0 for every International
+    CAGR.
+
 Combined, they produce a single generated mapper keyed at Rep_Code
 granularity:
 
@@ -34,12 +48,12 @@ granularity:
 
 "catégorie" (the FR one) comes from the hierarchical match. The Segment /
 Sub-segment 1-3 columns for each region come from looking up that
-region's catégorie (catégorie_FR / catégorie_INT) directly in the
-identified hierarchies table — this table only carries one hierarchy per
-catégorie ID (its columns happen to be named with a "_FR" suffix), so the
-same lookup table is used for both regions; what makes the result
-region-aware is that catégorie_FR and catégorie_INT can point at
-different rows in that table.
+region's catégorie (catégorie_FR / catégorie_INT) AND that region itself
+in the identified hierarchies table — i.e. the (catégorie, Region) pair
+is the lookup key. The result is region-aware in two ways: catégorie_FR
+and catégorie_INT can point at different catégorie IDs, and — when the
+hierarchies table provides region-specific rows — the same catégorie ID
+can resolve to different Segment/Sub-segment labels per region.
 
 IMPORTANT — region-aware matching: the Market Sizing workbook contains
 separate rows (and separate Million EUR figures) for France vs.
@@ -342,22 +356,27 @@ def load_category_hierarchies(path=DATA_MARKET_HIERARCHIES) -> dict:
     """Load "market size identified hierarchies.xlsx" (Sheet1) — a table
     that has already been hand/otherwise identified as the correct
     catégorie -> Segment/Sub-segment 1-3 mapping — and return it as
-    {catégorie: {'Segment_FR': ..., 'Sub-segment 1_FR': ..., ...}}
+    {(catégorie, region): {'Segment': ..., 'Sub-segment 1': ..., ...}}
     (test1.py's approach).
 
-    The table only carries one hierarchy per catégorie ID (its columns
-    happen to be named with a "_FR" suffix); the same lookup table is
-    used for both France and International — see build_category_mapper,
-    which looks each region's own catégorie (catégorie_FR / catégorie_INT)
-    up in this same table, so the region-awareness comes from which
-    catégorie is used as the key, not from the table itself.
+    Columns are the plain hierarchy names (Segment, Sub-segment 1-3, no
+    "_FR"/"_INT" suffix) plus an OPTIONAL 'Region' column (FR / INT).
+    When a row has a recognized Region, its hierarchy is keyed to that
+    region only — so the same catégorie ID can carry a different
+    Segment/Sub-segment hierarchy for FR vs. INT, which is required for
+    the Million EUR join in pipeline.py to succeed for both regions.
+    When 'Region' is absent from the file entirely, or a row's Region
+    isn't recognized, that row's hierarchy is associated with BOTH
+    regions (the previous "one hierarchy shared by both regions"
+    behavior). Where the same (catégorie, region) key appears more than
+    once, the first row wins.
     """
     df = pd.read_excel(path, sheet_name='Sheet1')
     if 'catégorie (ID)' not in df.columns:
         raise ValueError("market size identified hierarchies.xlsx must have a "
                           "'catégorie (ID)' column")
 
-    hierarchy_cols = [f"{c}_FR" for c in SEGMENT_LEVEL_COLS]
+    hierarchy_cols = [f"{c}" for c in SEGMENT_LEVEL_COLS]
     missing = [c for c in hierarchy_cols if c not in df.columns]
     if missing:
         raise ValueError(f"market size identified hierarchies.xlsx is missing "
@@ -366,9 +385,28 @@ def load_category_hierarchies(path=DATA_MARKET_HIERARCHIES) -> dict:
     for c in hierarchy_cols:
         df[c] = df[c].apply(clean_segment_cell)
 
-    df = df.drop_duplicates(subset=['catégorie (ID)'], keep='first')
-    df = df.set_index('catégorie (ID)')
-    return df[hierarchy_cols].to_dict('index')
+    has_region = 'Region' in df.columns
+    if has_region:
+        df['Region_norm'] = df['Region'].apply(normalize_region_label)
+
+    lookup = {}
+    for _, row in df.iterrows():
+        cat = row['catégorie (ID)']
+        if pd.isna(cat) or cat == '':
+            continue
+        vals = {c: row[c] for c in hierarchy_cols}
+        region_norm = row['Region_norm'] if has_region else None
+        if region_norm in (REGION_FR, REGION_INTL):
+            lookup.setdefault((cat, region_norm), vals)
+        else:
+            # No usable Region for this row — apply its hierarchy to
+            # both regions (keep-first, so an explicit region-specific
+            # row seen earlier for the same catégorie is never
+            # overwritten by a later region-less one).
+            lookup.setdefault((cat, REGION_FR), vals)
+            lookup.setdefault((cat, REGION_INTL), vals)
+
+    return lookup
 
 
 # ─────────────────────────────────────────────
@@ -406,11 +444,11 @@ def build_category_mapper(force_rebuild=False) -> pd.DataFrame:
     # matching, run once per CAGR SVP region).
     rep_to_cat = assign_categories_to_rep_codes()
 
-    # catégorie -> Segment/Sub-segment 1-3, read directly from the
-    # pre-identified hierarchies table (no semantic/fuzzy matching).
+    # (catégorie, region) -> Segment/Sub-segment 1-3, read directly from
+    # the pre-identified hierarchies table (no semantic/fuzzy matching).
     hierarchy_lookup = load_category_hierarchies()
-    matched_fr  = rep_to_cat['catégorie_FR'].isin(hierarchy_lookup.keys()).sum()
-    matched_int = rep_to_cat['catégorie_INT'].isin(hierarchy_lookup.keys()).sum()
+    matched_fr  = sum(1 for c in rep_to_cat['catégorie_FR']  if (c, REGION_FR)   in hierarchy_lookup)
+    matched_int = sum(1 for c in rep_to_cat['catégorie_INT'] if (c, REGION_INTL) in hierarchy_lookup)
     print(f"  ✓ Identified hierarchies lookup: {matched_fr}/{len(rep_to_cat)} Rep_Codes' "
           f"catégorie_FR found, {matched_int}/{len(rep_to_cat)} catégorie_INT found")
 
@@ -421,10 +459,13 @@ def build_category_mapper(force_rebuild=False) -> pd.DataFrame:
     for region, cat_col in cat_col_by_region.items():
         for seg_col in SEGMENT_LEVEL_COLS:
             out_col = f"{seg_col}_{region}"
-            src_col = f"{seg_col}_FR"  # the hierarchies table only has one hierarchy per catégorie
-            mapper[out_col] = mapper[cat_col].map(
-                lambda c: hierarchy_lookup.get(c, {}).get(src_col, '---') if c else '---'
-            )
+
+            def _lookup(c, region=region, seg_col=seg_col):
+                if not c:
+                    return '---'
+                return hierarchy_lookup.get((c, region), {}).get(seg_col, '---')
+
+            mapper[out_col] = mapper[cat_col].map(_lookup)
             mapper[out_col] = mapper[out_col].apply(clean_segment_cell)
 
     try:

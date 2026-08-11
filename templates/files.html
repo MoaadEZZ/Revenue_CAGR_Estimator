@@ -457,7 +457,7 @@
                 <label class="form-label" data-i18n="files.choose_file">Choose File</label>
                 <div class="file-input-wrapper">
                     <label class="file-input-label" id="fileInputLabel" for="fileInput">
-                        <span data-i18n="files.drag_drop">📎 Click to select or drag & drop your file here</span>
+                        <span id="fileInputHint" data-i18n="files.drag_drop">📎 Click to select or drag & drop your file here</span>
                     </label>
                     <input type="file" id="fileInput" accept=".xlsx,.xls" required>
                 </div>
@@ -727,14 +727,14 @@ const FILE_TYPES = {
     data_fr: {
         name: 'Data (France)',
         requiredColumns: ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
-        description: 'France revenue data — combined with International into data.xlsx (Region = FR)',
+        description: 'France revenue data — combined with International into data.xlsx (Region = FR). You can select multiple files at once; they will be merged together before being combined.',
         downloadable: false,
         uploadable: true
     },
     data_intl: {
         name: 'Data (International)',
         requiredColumns: ['Rep_Code', 'Offer', 'Period', '_S_Revenue_actual'],
-        description: 'International revenue data — combined with France into data.xlsx (Region = INT)',
+        description: 'International revenue data — combined with France into data.xlsx (Region = INT). You can select multiple files at once; they will be merged together before being combined.',
         downloadable: false,
         uploadable: true
     }
@@ -759,9 +759,26 @@ function showAlert(type, message) {
     setTimeout(() => alertEl.classList.remove('show'), 5000);
 }
 
+// File types that accept several files at once (concatenated server-side
+// into a single regional revenue file before being combined into data.xlsx).
+const MULTI_FILE_TYPES = ['data_fr', 'data_intl'];
+
 // ── File Type Selection ────────────────────────────────────────────────────
 fileTypeSelect.addEventListener('change', (e) => {
     const fileType = e.target.value;
+
+    // Enable multi-select only for the regional revenue file types.
+    const allowMultiple = MULTI_FILE_TYPES.includes(fileType);
+    fileInput.multiple = allowMultiple;
+    const hintEl = document.getElementById('fileInputHint');
+    if (hintEl) {
+        hintEl.textContent = allowMultiple
+            ? '📎 Click to select or drag & drop one or more files here (they will be merged)'
+            : '📎 Click to select or drag & drop your file here';
+    }
+    // Selection is no longer valid for the newly chosen type — clear it.
+    clearFileSelection();
+
     if (!fileType) {
         requiredColumnsDiv.innerHTML = '<p style="color: var(--text-muted); margin: 0;">Select a file type to see required columns</p>';
         return;
@@ -777,12 +794,22 @@ fileTypeSelect.addEventListener('change', (e) => {
 });
 
 // ── File Input Handling ────────────────────────────────────────────────────
-fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) {
-        document.getElementById('fileName').textContent = `✓ ${file.name}`;
-        fileNameDisplay.classList.add('show');
+function updateFileNameDisplay(files) {
+    if (!files || files.length === 0) {
+        fileNameDisplay.classList.remove('show');
+        return;
     }
+    if (files.length === 1) {
+        document.getElementById('fileName').textContent = `✓ ${files[0].name}`;
+    } else {
+        const names = Array.from(files).map(f => f.name).join(', ');
+        document.getElementById('fileName').textContent = `✓ ${files.length} files selected: ${names}`;
+    }
+    fileNameDisplay.classList.add('show');
+}
+
+fileInput.addEventListener('change', (e) => {
+    updateFileNameDisplay(e.target.files);
 });
 
 // ── Drag & Drop ────────────────────────────────────────────────────────────
@@ -798,11 +825,16 @@ fileInputLabel.addEventListener('dragleave', () => {
 fileInputLabel.addEventListener('drop', (e) => {
     e.preventDefault();
     fileInputLabel.classList.remove('dragover');
-    const files = e.dataTransfer.files;
+    let files = e.dataTransfer.files;
     if (files.length > 0) {
+        // If this file type doesn't support multiple files, only keep the first one dropped.
+        if (!fileInput.multiple && files.length > 1) {
+            const dt = new DataTransfer();
+            dt.items.add(files[0]);
+            files = dt.files;
+        }
         fileInput.files = files;
-        fileNameDisplay.textContent = `✓ Selected: ${files[0].name}`;
-        fileNameDisplay.classList.add('show');
+        updateFileNameDisplay(files);
     }
 });
 
@@ -811,14 +843,14 @@ uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const fileType = fileTypeSelect.value;
-    const file = fileInput.files[0];
+    const files = fileInput.files;
 
     if (!fileType) {
         showAlert('error', 'Please select a file type');
         return;
     }
 
-    if (!file) {
+    if (!files || files.length === 0) {
         showAlert('error', 'Please select a file');
         return;
     }
@@ -828,7 +860,9 @@ uploadForm.addEventListener('submit', async (e) => {
 
     const formData = new FormData();
     formData.append('file_type', fileType);
-    formData.append('file', file);
+    for (const f of files) {
+        formData.append('file', f);
+    }
 
     try {
         const response = await fetch('/upload_file', {

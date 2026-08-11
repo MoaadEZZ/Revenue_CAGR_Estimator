@@ -503,10 +503,18 @@ def custom_cagr_status():
 @app.route('/upload_file', methods=['POST'])
 def upload_file():
     try:
-        file_type     = request.form.get('file_type')
-        uploaded_file = request.files.get('file')
-        if not uploaded_file: return jsonify({'error': 'No file provided'}), 400
-        if not file_type:     return jsonify({'error': 'File type not specified'}), 400
+        file_type      = request.form.get('file_type')
+        uploaded_files = request.files.getlist('file')
+        if not uploaded_files: return jsonify({'error': 'No file provided'}), 400
+        if not file_type:      return jsonify({'error': 'File type not specified'}), 400
+
+        # Only the two regional revenue slots accept several files at once
+        # (they get concatenated together below). Every other file type is
+        # single-file only.
+        if file_type not in ('data_fr', 'data_intl') and len(uploaded_files) > 1:
+            return jsonify({'error': 'Only one file allowed for this file type'}), 400
+
+        uploaded_file = uploaded_files[0]
         file_bytes = uploaded_file.read()
         uploaded_file.seek(0)
 
@@ -577,10 +585,18 @@ def upload_file():
             target_path = DATA_MARKET_HIERARCHIES
 
         elif file_type in ('data_fr', 'data_intl'):
-            df = pd.read_excel(uploaded_file)
+            # Every uploaded file for this region must have the required
+            # columns; all of them are then concatenated together into a
+            # single regional file (data_france.xlsx / data_international.xlsx).
             required = ['Offer','Period','_S_Revenue_actual']
-            missing  = [c for c in required if c not in df.columns]
-            if missing: return jsonify({'error': f'Missing: {", ".join(missing)}'}), 400
+            region_frames = []
+            for f in uploaded_files:
+                df_part = pd.read_excel(f)
+                missing = [c for c in required if c not in df_part.columns]
+                if missing:
+                    return jsonify({'error': f'Missing: {", ".join(missing)} (file: {f.filename})'}), 400
+                region_frames.append(df_part)
+            df = pd.concat(region_frames, ignore_index=True) if len(region_frames) > 1 else region_frames[0]
             target_path = DATA_REVENUE_FR if file_type == 'data_fr' else DATA_REVENUE_INTL
 
         else:
@@ -588,11 +604,19 @@ def upload_file():
 
         if os.path.exists(target_path):
             backup_old_file(file_type, target_path)
-        with open(target_path, 'wb') as f:
-            f.write(file_bytes)
+
+        if file_type in ('data_fr', 'data_intl'):
+            # Written from the (possibly concatenated) dataframe rather than
+            # the raw upload bytes, since several files may have been merged.
+            df.to_excel(target_path, index=False)
+        else:
+            with open(target_path, 'wb') as out_f:
+                out_f.write(file_bytes)
 
         # Regenerate the combined data.xlsx whenever a regional revenue
-        # file changes.
+        # file changes. combine_revenue_files() tags each region's rows
+        # with Region=FR/INT and, if only one of the two regional files
+        # exists, data.xlsx simply mirrors that one file for now.
         if file_type in ('data_fr', 'data_intl'):
             combine_revenue_files()
 
